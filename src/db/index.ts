@@ -268,54 +268,6 @@ export function getMedianPriceByDistrict(
   return results;
 }
 
-export type DealScore = {
-  id: number;
-  url: string;
-  price: number;
-  sizeM2: number;
-  pricePerM2: number;
-  city: string;
-  district: string;
-  districtAvgPricePerM2: number;
-  savings: number;
-  savingsPercent: number;
-};
-
-export function findDeals(type: "rent" | "sale" = "rent", maxPercentile = 25): DealScore[] {
-  return getDb()
-    .prepare<DealScore, [string, string, number]>(
-      `
-      WITH district_stats AS (
-        SELECT
-          city, district,
-          AVG(CASE WHEN size_m2 > 0 THEN price / size_m2 END) as avg_ppm2
-        FROM listings
-        WHERE type = ? AND price IS NOT NULL AND size_m2 > 0
-        GROUP BY city, district
-        HAVING COUNT(*) >= 3
-      )
-      SELECT
-        l.id,
-        l.url,
-        l.price,
-        l.size_m2 as sizeM2,
-        ROUND(l.price / l.size_m2, 2) as pricePerM2,
-        l.city,
-        l.district,
-        ROUND(ds.avg_ppm2, 2) as districtAvgPricePerM2,
-        ROUND(ds.avg_ppm2 * l.size_m2 - l.price, 2) as savings,
-        ROUND((1 - (l.price / l.size_m2) / ds.avg_ppm2) * 100, 1) as savingsPercent
-      FROM listings l
-      JOIN district_stats ds ON l.city = ds.city AND l.district = ds.district
-      WHERE l.type = ? AND l.price IS NOT NULL AND l.size_m2 > 0
-        AND (l.price / l.size_m2) < ds.avg_ppm2
-        AND (1 - (l.price / l.size_m2) / ds.avg_ppm2) * 100 > ?
-      ORDER BY savingsPercent DESC
-    `,
-    )
-    .all(type, type, 100 - maxPercentile) as DealScore[];
-}
-
 export function getListingById(id: number) {
   return getDb()
     .prepare<Listing & { created_at: string; updated_at: string }, [number]>(

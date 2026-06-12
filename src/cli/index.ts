@@ -1,5 +1,28 @@
 import * as cmd from "./commands";
-import { bold, cyan, dim, c } from "./format";
+import * as analysis from "./analyze";
+import { cyan, dim, c } from "./format";
+
+function parseDealOpts(args: string[]) {
+  const type = (args.find((a) => a === "sale" || a === "rent") ?? "rent") as "rent" | "sale";
+  const city = args.find((a) => a.startsWith("--city="))?.split("=")[1];
+  const minScore = args.find((a) => a.startsWith("--min-score="))?.split("=")[1];
+  const limit = args.find((a) => a.startsWith("--limit="))?.split("=")[1];
+  return {
+    type,
+    opts: {
+      city,
+      minScore: minScore ? Number(minScore) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      includeSuspicious: args.includes("--all"),
+    },
+  };
+}
+
+function parseMarketArgs(args: string[]) {
+  const type = (args.find((a) => a === "sale" || a === "rent") ?? "rent") as "rent" | "sale";
+  const city = args.find((a) => a !== "sale" && a !== "rent" && !a.startsWith("--"));
+  return { type, city };
+}
 
 type SearchState = {
   city?: string;
@@ -113,9 +136,26 @@ async function dispatch(input: string) {
 
     case "deals":
     case "d": {
-      const type = (args[0] === "sale" ? "sale" : "rent") as "rent" | "sale";
-      const threshold = args[1] ? Number(args[1]) : 25;
-      cmd.deals(type, threshold);
+      const { type, opts } = parseDealOpts(args);
+      analysis.deals(type, opts);
+      break;
+    }
+
+    case "analyze":
+    case "a": {
+      const id = Number(args[0]);
+      if (!id) {
+        console.log(dim("  Usage: analyze <id>"));
+        break;
+      }
+      analysis.analyze(id);
+      break;
+    }
+
+    case "market":
+    case "m": {
+      const { type, city } = parseMarketArgs(args);
+      analysis.market(type, city);
       break;
     }
 
@@ -170,12 +210,19 @@ async function runDirect(args: string[]) {
     case "regions":
       cmd.regions((rest[0] === "sale" ? "sale" : "rent") as "rent" | "sale");
       break;
-    case "deals":
-      cmd.deals(
-        (rest[0] === "sale" ? "sale" : "rent") as "rent" | "sale",
-        rest[1] ? Number(rest[1]) : 25,
-      );
+    case "deals": {
+      const { type, opts } = parseDealOpts(rest);
+      analysis.deals(type, opts);
       break;
+    }
+    case "analyze":
+      analysis.analyze(Number(rest[0]));
+      break;
+    case "market": {
+      const { type, city } = parseMarketArgs(rest);
+      analysis.market(type, city);
+      break;
+    }
     case "help":
       cmd.help();
       break;

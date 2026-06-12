@@ -1,7 +1,6 @@
 import {
   getStats,
   getRegionStats,
-  findDeals,
   searchDb,
   getListingById,
   getPriceHistory,
@@ -115,56 +114,6 @@ export function regions(type: "rent" | "sale" = "rent") {
 
   console.log(table(rows as Record<string, unknown>[], cols));
   console.log(dim(`  ${rows.length} districts`));
-}
-
-export function deals(type: "rent" | "sale" = "rent", threshold = 25) {
-  const data = findDeals(type, threshold);
-
-  console.log(heading(`Best Deals (${type}) — below ${threshold}th percentile`));
-
-  const cols: Column[] = [
-    { key: "id", label: "ID", width: 10 },
-    { key: "city", label: "City", width: 12 },
-    { key: "district", label: "District", width: 16 },
-    {
-      key: "price",
-      label: "Price",
-      width: 10,
-      align: "right",
-      format: (v) => money(v as number),
-    },
-    {
-      key: "sizeM2",
-      label: "Size",
-      width: 8,
-      align: "right",
-      format: (v) => m2(v as number),
-    },
-    {
-      key: "pricePerM2",
-      label: "€/m²",
-      width: 8,
-      align: "right",
-      format: (v) => `${(v as number).toFixed(1)}`,
-    },
-    {
-      key: "districtAvgPricePerM2",
-      label: "Avg €/m²",
-      width: 9,
-      align: "right",
-      format: (v) => `${(v as number).toFixed(1)}`,
-    },
-    {
-      key: "savingsPercent",
-      label: "Saving",
-      width: 8,
-      align: "right",
-      format: (v) => green(`-${(v as number).toFixed(1)}%`),
-    },
-  ];
-
-  console.log(table(data as unknown as Record<string, unknown>[], cols));
-  console.log(dim(`  ${data.length} deals found`));
 }
 
 export function search(opts: {
@@ -403,8 +352,11 @@ export function help() {
   console.log(`    ${dim("--sort=price|size_m2|visits|published_at")}`);
   console.log(`    ${dim("--limit=20 --offset=0")}`);
   console.log(`  ${bold("listing")} ${dim("<id>")}                   ${dim("Full listing detail")}`);
+  console.log(`  ${bold("analyze")} ${dim("<id>")}                   ${dim("Hedonic valuation: estimate, edge, comparables")}`);
+  console.log(`  ${bold("market")} ${dim("[rent|sale] [city]")}      ${dim("Market overview, size bands, district premiums")}`);
   console.log(`  ${bold("regions")} ${dim("[rent|sale]")}            ${dim("Price stats by region")}`);
-  console.log(`  ${bold("deals")} ${dim("[rent|sale] [threshold]")}  ${dim("Find below-market listings")}`);
+  console.log(`  ${bold("deals")} ${dim("[rent|sale] [options]")}    ${dim("Model-scored below-market listings")}`);
+  console.log(`    ${dim("--city=Helsinki --min-score=40 --limit=30 --all")}`);
   console.log(`  ${bold("next")}                           ${dim("Next page of results")}`);
   console.log(`  ${bold("open")} ${dim("<id>")}                     ${dim("Open listing in browser")}`);
   console.log(`  ${bold("help")}                           ${dim("Show this help")}`);
