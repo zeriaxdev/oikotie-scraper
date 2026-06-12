@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "oikotie": {
+      "command": "bun",
+      "args": ["src/mcp/index.ts"]
+    }
+  }
+}
