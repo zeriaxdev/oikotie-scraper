@@ -7,6 +7,7 @@
     "scrape:all": "bun src/scraper/crawl.ts --type=rent,sale",
     "scrape:stats": "bun src/scraper/crawl.ts --stats",
     "cli": "bun src/cli/index.ts",
+    "mcp": "bun src/mcp/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -14,5 +15,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   }
 }
