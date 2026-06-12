@@ -1,0 +1,18 @@
+{
+  "name": "oikotie",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "scrape": "bun src/scraper/crawl.ts",
+    "scrape:all": "bun src/scraper/crawl.ts --type=rent,sale",
+    "scrape:stats": "bun src/scraper/crawl.ts --stats",
+    "cli": "bun src/cli/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
