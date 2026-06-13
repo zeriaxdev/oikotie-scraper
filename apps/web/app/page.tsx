@@ -3,7 +3,8 @@ import {
   allCitySummaries,
   cityMarket,
   findSmartDeals,
-  serializeValuation,
+  attachLivability,
+  serializeDeal,
   priceDistribution,
   eur,
 } from "@/lib/data";
@@ -15,7 +16,8 @@ import { Stagger, Item, FadeUp } from "@/components/motion";
 
 export const dynamic = "force-dynamic";
 
-type Search = { type?: string; city?: string; district?: string; flagged?: string };
+type Search = { type?: string; city?: string; district?: string; flagged?: string; sort?: string };
+type SortMode = "livability" | "value" | "cost";
 
 export default async function Home({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
@@ -23,15 +25,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
   const city = sp.city?.trim() || undefined;
   const district = sp.district?.trim() || undefined;
   const flagged = sp.flagged === "1";
+  const sort: SortMode = sp.sort === "value" ? "value" : sp.sort === "cost" ? "cost" : "livability";
 
   const cities = allCitySummaries(type).filter((c) => c.count >= 20);
-  const deals = findSmartDeals(type, {
+  const rawDeals = findSmartDeals(type, {
     city,
     district,
     minScore: flagged ? 0 : 40,
-    limit: flagged ? 60 : 30,
+    limit: flagged ? 80 : 60,
     includeFlagged: flagged,
-  }).map(serializeValuation);
+  });
+  const enriched = await attachLivability(rawDeals);
+  const sorted = [...enriched].sort((a, b) => {
+    if (sort === "value") return b.dealScore - a.dealScore;
+    if (sort === "cost") return a.trueCost - b.trueCost;
+    return b.livability.score - a.livability.score;
+  });
+  const deals = sorted.slice(0, 30).map(serializeDeal);
   // How many below-model listings are hidden because they're flagged.
   const hiddenCount = flagged
     ? 0
@@ -45,6 +55,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
     const q = new URLSearchParams({ type });
     if (city) q.set("city", city);
     if (district) q.set("district", district);
+    if (sort !== "livability") q.set("sort", sort);
+    if (flagged) q.set("flagged", "1");
     for (const [k, val] of Object.entries(extra)) q.set(k, val);
     return `/?${q}#deals`;
   };
@@ -184,7 +196,27 @@ export default async function Home({ searchParams }: { searchParams: Promise<Sea
                     </Link>
                   )}
                 </h2>
-                <p className="eyebrow">{deals.length} listings · ranked by deal score</p>
+                <div className="flex items-center gap-1 text-sm">
+                  <span className="eyebrow mr-1">Rank by</span>
+                  {(
+                    [
+                      ["livability", "Livability"],
+                      ["cost", "True cost"],
+                      ["value", "Value"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Link
+                      key={key}
+                      href={dealsHref({ sort: key })}
+                      scroll={false}
+                      className={`rounded-full px-2.5 py-1 transition-colors ${
+                        sort === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
               </div>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Listed at least one robust standard deviation under the model&rsquo;s estimate for

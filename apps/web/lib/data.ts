@@ -18,11 +18,14 @@ export {
   getCityModel,
   findComparables,
   serializeValuation,
+  serializeDeal,
   serializeListingRow,
   serializeDetailRow,
   getCostInputs,
+  attachLivability,
+  scoreLivability,
 } from "../../../src/analysis";
-export type { CostInputs } from "../../../src/analysis";
+export type { CostInputs, Livability } from "../../../src/analysis";
 
 export { getOrFetchDetail } from "../../../src/scraper/details";
 export { getAreaProfile } from "../../../src/scraper/client";

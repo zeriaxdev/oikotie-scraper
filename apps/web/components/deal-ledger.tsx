@@ -18,6 +18,8 @@ export type Deal = {
   confidence: string;
   flags: string[];
   disqualified: boolean;
+  livability: number;
+  trueCost: number;
 };
 
 const RED = new Set(["renovation", "sublet", "shared", "short-term", "suspicious"]);
@@ -51,9 +53,10 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
             <th>Address</th>
             <th className="hidden sm:table-cell">District</th>
             <th className="text-right">Asking</th>
-            <th className="hidden text-right md:table-cell">Estimate</th>
+            <th className="hidden text-right lg:table-cell">True cost</th>
             <th className="text-right">Edge</th>
-            <th className="hidden text-right md:table-cell">Score</th>
+            <th className="hidden text-right md:table-cell">Value</th>
+            <th className="text-right">Livability</th>
           </tr>
         </thead>
         <motion.tbody
@@ -101,8 +104,9 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
               </td>
               <td className="hidden text-sm text-muted-foreground sm:table-cell">{d.district ?? "—"}</td>
               <td className="text-right tabular-nums">{eur(d.askingPrice)}</td>
-              <td className="hidden text-right tabular-nums text-muted-foreground md:table-cell">
-                {eur(d.expectedPrice)}
+              <td className="hidden text-right tabular-nums lg:table-cell">
+                {eur(d.trueCost)}
+                <span className="text-muted-foreground">/mo</span>
               </td>
               <td
                 className="text-right font-medium tabular-nums"
@@ -110,8 +114,16 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
               >
                 {pct(d.edgePercent)}
               </td>
-              <td className="hidden text-right md:table-cell">
-                <span className="figure text-lg text-primary">{d.dealScore}</span>
+              <td className="hidden text-right tabular-nums text-muted-foreground md:table-cell">
+                {d.dealScore}
+              </td>
+              <td className="text-right">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="hidden h-1 w-10 overflow-hidden rounded-full bg-border sm:inline-block">
+                    <span className="block h-full bg-primary" style={{ width: `${d.livability}%` }} />
+                  </span>
+                  <span className="figure text-base text-primary">{d.livability}</span>
+                </span>
               </td>
             </motion.tr>
           ))}

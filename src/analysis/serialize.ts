@@ -2,6 +2,7 @@
 // consumer present valuations and listings with identical camelCase shapes.
 
 import type { Valuation } from "./model";
+import type { EnrichedDeal } from "./livability";
 
 export function verdictFor(z: number): string {
   if (z <= -2) return "significantly below market";
@@ -34,6 +35,15 @@ export function serializeValuation(v: Valuation) {
     demandPercentile: Math.round(v.demandPercentile * 100),
     visitsWeekly: v.row.visits_weekly,
     model: v.model,
+  };
+}
+
+export function serializeDeal(d: EnrichedDeal) {
+  return {
+    ...serializeValuation(d),
+    livability: d.livability.score,
+    livabilityComponents: d.livability.components,
+    trueCost: d.trueCost,
   };
 }
 

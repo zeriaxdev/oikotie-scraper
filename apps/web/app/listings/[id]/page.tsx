@@ -6,6 +6,7 @@ import {
   getOrFetchDetail,
   getCostInputs,
   getAreaProfile,
+  scoreLivability,
   serializeValuation,
   serializeDetailRow,
   eur,
@@ -77,6 +78,20 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const transit = area?.transportation?.content?.slice(0, 6) ?? [];
   const services = area?.services?.content?.slice(0, 4) ?? [];
 
+  const dr = (detailRow ?? {}) as Record<string, unknown>;
+  const livability = scoreLivability({
+    disqualified: v.disqualified,
+    z: v.z,
+    conditionCode: (dr.condition_code as number) ?? null,
+    sauna: dr.sauna == null ? null : !!dr.sauna,
+    lift: dr.lift == null ? null : !!dr.lift,
+    hasBalcony: !!dr.balcony_info,
+    hasTerrace: dr.has_terrace == null ? null : !!dr.has_terrace,
+    floor: v.row.floor,
+    buildYear: v.row.build_year,
+    demandPercentile: v.demandPercentile,
+  });
+
   return (
     <main className="graph">
       <div className="mx-auto max-w-[1400px]">
@@ -97,6 +112,30 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           </Item>
           <Item className="mt-8">
             <ValuationLede v={val} />
+          </Item>
+          <Item className="mt-10 border-t border-border pt-7">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <p className="eyebrow">Livability · would I live here</p>
+              <p className="figure text-3xl text-primary">
+                {livability.score}
+                <span className="ml-1 text-base font-normal text-muted-foreground">/100</span>
+              </p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-x-10 gap-y-3 sm:grid-cols-5">
+              {livability.components.map((c) => (
+                <div key={c.label}>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">{c.label}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {c.value}/{c.max}
+                    </span>
+                  </div>
+                  <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-border">
+                    <span className="block h-full bg-primary" style={{ width: `${(c.value / c.max) * 100}%` }} />
+                  </span>
+                </div>
+              ))}
+            </div>
           </Item>
         </Stagger>
 
