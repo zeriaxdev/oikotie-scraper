@@ -23,8 +23,10 @@ import {
   allCitySummaries,
   serializeValuation,
   serializeListingRow,
+  serializeDetailRow,
 } from "../analysis";
 import { getAreaProfile } from "../scraper/client";
+import { getOrFetchDetail } from "../scraper/details";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -81,7 +83,7 @@ function handleListings(url: URL): Response {
   });
 }
 
-function handleAnalyze(id: number): Response {
+async function handleAnalyze(id: number): Promise<Response> {
   const v = valuateListing(id);
   if (!v) {
     return json(
@@ -103,6 +105,7 @@ function handleAnalyze(id: number): Response {
     : [];
   return json({
     valuation: serializeValuation(v),
+    detail: serializeDetailRow(await getOrFetchDetail(id)),
     comparables,
     priceHistory: getPriceHistory(id),
   });
@@ -128,18 +131,26 @@ async function route(req: Request, url: URL): Promise<Response> {
 
   if (path === "/api/listings") return handleListings(url);
 
-  const detail = path.match(/^\/api\/listings\/(\d+)(\/analyze|\/area)?$/);
-  if (detail) {
-    const id = Number(detail[1]);
-    const sub = detail[2];
+  const detailRoute = path.match(/^\/api\/listings\/(\d+)(\/analyze|\/area|\/detail)?$/);
+  if (detailRoute) {
+    const id = Number(detailRoute[1]);
+    const sub = detailRoute[2];
     if (sub === "/analyze") return handleAnalyze(id);
     if (sub === "/area") {
       const profile = await getAreaProfile(id);
       return profile ? json(profile) : json({ error: `No area profile for ${id}` }, 404);
     }
+    if (sub === "/detail") {
+      const d = await getOrFetchDetail(id);
+      return d ? json(serializeDetailRow(d)) : json({ error: `No detail for ${id}` }, 404);
+    }
     const listing = getListingById(id) as Record<string, unknown> | null;
     if (!listing) return json({ error: `Listing ${id} not found` }, 404);
-    return json({ listing: serializeListingRow(listing), priceHistory: getPriceHistory(id) });
+    return json({
+      listing: serializeListingRow(listing),
+      detail: serializeDetailRow(await getOrFetchDetail(id)),
+      priceHistory: getPriceHistory(id),
+    });
   }
 
   if (path === "/api/deals") {

@@ -365,6 +365,35 @@
               <td class="r num">${c.sizeM2} m²</td><td class="r num">${eur(c.price)}</td><td class="r num">${c.pricePerM2}</td></tr>`,
           )
           .join("");
+        const d = data.detail;
+        const detailRows = [];
+        if (d) {
+          const yn = (b) => (b == null ? null : b ? "Yes" : "No");
+          const add = (k, v) => { if (v != null && v !== "") detailRows.push([k, v]); };
+          add("Availability", d.availabilityInfo);
+          add("Rent term", d.rentTermInfo);
+          add("Kitchen", d.kitchenAppliances);
+          add("Bathroom", d.bathroomAppliances);
+          add("Storage", d.storageInfo);
+          add("Balcony", d.balconyInfo);
+          add("Terrace", yn(d.hasTerrace));
+          add("Sauna", d.sauna != null ? (yn(d.sauna) + (d.saunaInfo ? " — " + d.saunaInfo : "")) : null);
+          add("Lift", yn(d.lift));
+          add("Heating", d.heatingInfo);
+          add("Energy class", d.energyClass);
+          add("Building floors", d.buildingFloors);
+          add("Water fee", d.waterFeeInfo || (d.waterFee != null ? d.waterFee + " € / mo" : null));
+          add("Deposit", d.securityDepositInfo);
+          add("Other terms", d.otherTerms);
+        }
+        const detailHtml = detailRows.length
+          ? `<h4 class="section">Details</h4><dl class="kv">` +
+            detailRows.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="font-weight:400">${esc(v)}</dd>`).join("") +
+            `</dl>`
+          : "";
+        const descHtml = d && d.description
+          ? `<h4 class="section">Description</h4><div style="color:var(--muted);white-space:pre-wrap">${esc(d.description)}</div>`
+          : "";
         const hist =
           data.priceHistory.length > 1
             ? `<h4 class="section">Price history</h4><table><tbody>` +
@@ -390,9 +419,11 @@
             ${v.districtPpm2Percentile != null ? `<dt>€/m² in district</dt><dd class="num">${v.districtPpm2Percentile}th percentile</dd>` : ""}
             <dt>Demand</dt><dd class="num">${v.visitsWeekly}/wk · ${v.demandPercentile}th pct in ${esc(v.city)}</dd>
           </dl>
+          ${detailHtml}
           ${comps ? `<h4 class="section">Closest comparables</h4>
             <table><thead><tr><th>Address</th><th>Config</th><th class="r">Size</th><th class="r">Price</th><th class="r">€/m²</th></tr></thead>
             <tbody>${comps}</tbody></table>` : ""}
+          ${descHtml}
           ${hist}`;
         $("#drawerBody").querySelectorAll("tr[data-id]").forEach((r) =>
           r.addEventListener("click", () => analyze(r.dataset.id)),

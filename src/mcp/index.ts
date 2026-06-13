@@ -15,8 +15,10 @@ import {
   cityMarket,
   allCitySummaries,
   serializeValuation,
+  serializeDetailRow,
 } from "../analysis";
 import { getAreaProfile } from "../scraper/client";
+import { getOrFetchDetail } from "../scraper/details";
 
 const server = new McpServer({ name: "oikotie", version: "0.1.0" });
 
@@ -85,13 +87,17 @@ server.registerTool(
   {
     title: "Get listing",
     description:
-      "Full detail for one listing by id, including description, fees, coordinates and price history.",
+      "Full detail for one listing by id: core fields, the lazily-fetched 'Perustiedot' detail (appliances, fees, availability, sauna, lift, terms, etc.), and price history.",
     inputSchema: { id: z.number().int().describe("Oikotie listing/card id") },
   },
   async ({ id }) => {
     const listing = getListingById(id);
     if (!listing) return json({ error: `Listing ${id} not found` });
-    return json({ listing, priceHistory: getPriceHistory(id) });
+    return json({
+      listing,
+      detail: serializeDetailRow(await getOrFetchDetail(id)),
+      priceHistory: getPriceHistory(id),
+    });
   },
 );
 

@@ -6,6 +6,7 @@
     "scrape": "bun src/scraper/crawl.ts",
     "scrape:all": "bun src/scraper/crawl.ts --type=rent,sale",
     "scrape:stats": "bun src/scraper/crawl.ts --stats",
+    "scrape:details": "bun src/scraper/details.ts",
     "cli": "bun src/cli/index.ts",
     "mcp": "bun src/mcp/index.ts",
     "api": "bun src/api/index.ts",

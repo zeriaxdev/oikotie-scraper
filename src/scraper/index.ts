@@ -10,12 +10,14 @@ export {
   invalidateTokens,
   getAreaProfile,
   getRecommendations,
+  getCardDetail,
 } from "./client";
 
 export type { AreaProfile, AreaItem } from "./client";
 
 export type {
   Listing,
+  ListingDetail,
   PriceSnapshot,
   SearchFilters,
   LocationFilter,

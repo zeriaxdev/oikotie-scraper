@@ -23,6 +23,16 @@ bun run scrape:all                      # all 19 cities, rent + sale
 bun run scrape:stats                    # database summary
 ```
 
+The search crawl stores the summary card for each listing. The **full "Perustiedot" detail** (kitchen/bathroom appliances, availability dates, rent terms, deposit info, water fee, sauna, lift, balcony, condition, energy class, smoking/pet terms, plus the complete raw payload) comes from a separate per-listing endpoint and is fetched lazily on first access — or backfilled in bulk:
+
+```sh
+bun run scrape:details                       # 500 most-viewed listings missing details
+bun run scrape:details --city=Helsinki
+bun run scrape:details --type=rent --limit=2000
+```
+
+It's stored in `listing_details` (one row per listing, `raw_json` keeps everything) and surfaces automatically in `GET /api/listings/:id`, the web drawer, and the MCP `get_listing` tool.
+
 Requests are token-bucket rate-limited with delays between pages, User-Agents are rotated, raw API responses are stored alongside parsed rows, and upserts are idempotent — re-scraping updates listings and appends to `price_history` only when a price actually changed.
 
 ## CLI
@@ -77,12 +87,39 @@ The same server exposes a JSON API (CORS-enabled, so a separate frontend can cal
 | `GET /api/cities?type=` | Per-city summaries (median, €/m², model R²) |
 | `GET /api/market?type=&city=` | City detail: size bands + district premiums |
 | `GET /api/listings?type=&city=&district=&minPrice=&maxPrice=&minSize=&maxSize=&rooms=&sort=&limit=&offset=` | Filtered, paginated listings |
-| `GET /api/listings/:id` | Full detail + price history |
+| `GET /api/listings/:id` | Core fields + Perustiedot detail + price history |
+| `GET /api/listings/:id/detail` | Just the Perustiedot detail (lazy-fetched) |
 | `GET /api/listings/:id/analyze` | Valuation + comparables + price history |
 | `GET /api/listings/:id/area` | Live area profile (transit, services, demographics) |
 | `GET /api/deals?type=&city=&minScore=&limit=&includeSuspicious=` | Model-scored below-market listings |
 
 `sort` accepts `price`, `-price`, `size`, `-size`, `newest`, `popular`.
+
+## Building another app on top (Next.js, etc.)
+
+Two ways to reuse this data, depending on how coupled you want to be:
+
+**1. Consume the HTTP API (recommended, framework-agnostic).** Run `bun run api` and call it from any frontend. From a Next.js server component or route handler:
+
+```ts
+const deals = await fetch("http://localhost:3000/api/deals?city=Helsinki", {
+  next: { revalidate: 300 },
+}).then((r) => r.json());
+```
+
+This keeps the scraper/model in one place and your UI in another. CORS is open, so a browser client can call it directly too.
+
+**2. Import the data layer directly (same database, no HTTP).** The `src/db` and `src/analysis` modules are plain functions over the SQLite file — point `DB_PATH` at `oikotie.db` and call them. Because they use `bun:sqlite`, the consuming app must run on **Bun** (e.g. `next dev` under Bun, or a Bun-based API). Example:
+
+```ts
+import { searchDb } from "oikotie/src/db";
+import { findSmartDeals, cityMarket } from "oikotie/src/analysis";
+
+const { listings } = searchDb({ type: "rent", city: "Helsinki", maxPrice: 900 });
+const deals = findSmartDeals("rent", { city: "Helsinki", minScore: 50 });
+```
+
+For a Node-only Next.js app, use option 1 — `bun:sqlite` isn't available under Node, and this project intentionally avoids `better-sqlite3`.
 
 ## MCP server
 

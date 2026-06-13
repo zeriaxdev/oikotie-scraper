@@ -143,6 +143,36 @@ export type Listing = {
   imageUrl: string | null;
 };
 
+// Full per-listing detail from /api/card/{id} ("Perustiedot").
+// Curated, human-readable fields; the complete payload is kept in rawJson.
+export type ListingDetail = {
+  listingId: number;
+  title: string | null;
+  description: string | null;
+  availabilityInfo: string | null;
+  availabilityDate: string | null;
+  rentTermInfo: string | null;
+  kitchenAppliances: string | null;
+  bathroomAppliances: string | null;
+  storageInfo: string | null;
+  balconyInfo: string | null;
+  hasTerrace: boolean | null;
+  sauna: boolean | null;
+  saunaInfo: string | null;
+  lift: boolean | null;
+  heatingInfo: string | null;
+  waterFee: number | null;
+  waterFeeInfo: string | null;
+  securityDepositInfo: string | null;
+  otherTerms: string | null;
+  petsAllowedCode: number | null;
+  conditionCode: number | null;
+  energyClass: string | null;
+  buildingTypeCode: number | null;
+  buildingFloors: number | null;
+  rawJson: string;
+};
+
 export type PriceSnapshot = {
   listingId: number;
   price: number;

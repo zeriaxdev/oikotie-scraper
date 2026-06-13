@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { config } from "../config";
-import type { Listing, PriceSnapshot } from "../scraper/types";
+import type { Listing, ListingDetail, PriceSnapshot } from "../scraper/types";
 
 let _db: Database | null = null;
 
@@ -64,6 +64,36 @@ function migrate(db: Database) {
       total_errors INTEGER NOT NULL DEFAULT 0,
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       finished_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS listing_details (
+      listing_id INTEGER PRIMARY KEY REFERENCES listings(id),
+      title TEXT,
+      description TEXT,
+      availability_info TEXT,
+      availability_date TEXT,
+      rent_term_info TEXT,
+      kitchen_appliances TEXT,
+      bathroom_appliances TEXT,
+      storage_info TEXT,
+      balcony_info TEXT,
+      has_terrace INTEGER,
+      sauna INTEGER,
+      sauna_info TEXT,
+      lift INTEGER,
+      heating_info TEXT,
+      water_fee REAL,
+      water_fee_info TEXT,
+      security_deposit_info TEXT,
+      other_terms TEXT,
+      pets_allowed_code INTEGER,
+      condition_code INTEGER,
+      energy_class TEXT,
+      building_type_code INTEGER,
+      building_floors INTEGER,
+      raw_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS raw_responses (
@@ -274,6 +304,126 @@ export function getListingById(id: number) {
       "SELECT * FROM listings WHERE id = ?",
     )
     .get(id);
+}
+
+const upsertDetailSql = `
+  INSERT INTO listing_details (
+    listing_id, title, description, availability_info, availability_date,
+    rent_term_info, kitchen_appliances, bathroom_appliances, storage_info,
+    balcony_info, has_terrace, sauna, sauna_info, lift, heating_info,
+    water_fee, water_fee_info, security_deposit_info, other_terms,
+    pets_allowed_code, condition_code, energy_class, building_type_code,
+    building_floors, raw_json
+  ) VALUES (
+    $listingId, $title, $description, $availabilityInfo, $availabilityDate,
+    $rentTermInfo, $kitchenAppliances, $bathroomAppliances, $storageInfo,
+    $balconyInfo, $hasTerrace, $sauna, $saunaInfo, $lift, $heatingInfo,
+    $waterFee, $waterFeeInfo, $securityDepositInfo, $otherTerms,
+    $petsAllowedCode, $conditionCode, $energyClass, $buildingTypeCode,
+    $buildingFloors, $rawJson
+  ) ON CONFLICT(listing_id) DO UPDATE SET
+    title = excluded.title,
+    description = excluded.description,
+    availability_info = excluded.availability_info,
+    availability_date = excluded.availability_date,
+    rent_term_info = excluded.rent_term_info,
+    kitchen_appliances = excluded.kitchen_appliances,
+    bathroom_appliances = excluded.bathroom_appliances,
+    storage_info = excluded.storage_info,
+    balcony_info = excluded.balcony_info,
+    has_terrace = excluded.has_terrace,
+    sauna = excluded.sauna,
+    sauna_info = excluded.sauna_info,
+    lift = excluded.lift,
+    heating_info = excluded.heating_info,
+    water_fee = excluded.water_fee,
+    water_fee_info = excluded.water_fee_info,
+    security_deposit_info = excluded.security_deposit_info,
+    other_terms = excluded.other_terms,
+    pets_allowed_code = excluded.pets_allowed_code,
+    condition_code = excluded.condition_code,
+    energy_class = excluded.energy_class,
+    building_type_code = excluded.building_type_code,
+    building_floors = excluded.building_floors,
+    raw_json = excluded.raw_json,
+    updated_at = datetime('now')
+`;
+
+export function upsertListingDetail(detail: ListingDetail) {
+  getDb()
+    .prepare(upsertDetailSql)
+    .run({
+      $listingId: detail.listingId,
+      $title: detail.title,
+      $description: detail.description,
+      $availabilityInfo: detail.availabilityInfo,
+      $availabilityDate: detail.availabilityDate,
+      $rentTermInfo: detail.rentTermInfo,
+      $kitchenAppliances: detail.kitchenAppliances,
+      $bathroomAppliances: detail.bathroomAppliances,
+      $storageInfo: detail.storageInfo,
+      $balconyInfo: detail.balconyInfo,
+      $hasTerrace: detail.hasTerrace == null ? null : detail.hasTerrace ? 1 : 0,
+      $sauna: detail.sauna == null ? null : detail.sauna ? 1 : 0,
+      $saunaInfo: detail.saunaInfo,
+      $lift: detail.lift == null ? null : detail.lift ? 1 : 0,
+      $heatingInfo: detail.heatingInfo,
+      $waterFee: detail.waterFee,
+      $waterFeeInfo: detail.waterFeeInfo,
+      $securityDepositInfo: detail.securityDepositInfo,
+      $otherTerms: detail.otherTerms,
+      $petsAllowedCode: detail.petsAllowedCode,
+      $conditionCode: detail.conditionCode,
+      $energyClass: detail.energyClass,
+      $buildingTypeCode: detail.buildingTypeCode,
+      $buildingFloors: detail.buildingFloors,
+      $rawJson: detail.rawJson,
+    });
+
+  // Backfill the fuller description onto the listing if it was missing/shorter.
+  if (detail.description) {
+    getDb()
+      .prepare(
+        `UPDATE listings SET description = $d, updated_at = datetime('now')
+         WHERE id = $id AND (description IS NULL OR length(description) < length($d))`,
+      )
+      .run({ $d: detail.description, $id: detail.listingId });
+  }
+}
+
+/** Listing ids that don't yet have a detail row, optionally scoped by city/type. */
+export function getListingsMissingDetails(opts: {
+  city?: string;
+  type?: "rent" | "sale";
+  limit?: number;
+}): number[] {
+  const conds = ["d.listing_id IS NULL"];
+  const params: Record<string, string | number> = {};
+  if (opts.city) {
+    conds.push("l.city = $city COLLATE NOCASE");
+    params.$city = opts.city;
+  }
+  if (opts.type) {
+    conds.push("l.type = $type");
+    params.$type = opts.type;
+  }
+  const limit = opts.limit ?? 500;
+  return getDb()
+    .prepare(
+      `SELECT l.id FROM listings l
+       LEFT JOIN listing_details d ON d.listing_id = l.id
+       WHERE ${conds.join(" AND ")}
+       ORDER BY l.visits_weekly DESC
+       LIMIT ${limit}`,
+    )
+    .all(params)
+    .map((r) => (r as { id: number }).id);
+}
+
+export function getListingDetail(listingId: number) {
+  return getDb()
+    .prepare("SELECT * FROM listing_details WHERE listing_id = ?")
+    .get(listingId) as Record<string, unknown> | null;
 }
 
 export function getPriceHistory(listingId: number): PriceSnapshot[] {

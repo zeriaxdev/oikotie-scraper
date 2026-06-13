@@ -17,4 +17,4 @@ export type { CityMarket, DistrictMarket, SizeBandStats, CitySummary } from "./m
 
 export { mean, median, quantile, madSigma, percentileRank, olsFit, sparkline } from "./stats";
 
-export { serializeValuation, serializeListingRow, verdictFor } from "./serialize";
+export { serializeValuation, serializeListingRow, serializeDetailRow, verdictFor } from "./serialize";

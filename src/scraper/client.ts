@@ -5,6 +5,7 @@ import type {
   OikotieLocation,
   SearchFilters,
   Listing,
+  ListingDetail,
   LocationFilter,
 } from "./types";
 import { CARD_TYPE } from "./types";
@@ -201,6 +202,56 @@ export async function getRecommendations(cardId: number): Promise<OikotieSearchR
   } catch {
     return [];
   }
+}
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const boolOrNull = (v: unknown): boolean | null =>
+  typeof v === "boolean" ? v : v === 1 ? true : v === 0 ? false : null;
+
+/**
+ * Full "Perustiedot" detail from /api/card/{id}. Returns the curated
+ * ListingDetail plus the complete raw payload. Null on failure.
+ */
+export async function getCardDetail(cardId: number): Promise<ListingDetail | null> {
+  await limiter.acquire();
+  let rawJson: string;
+  let card: { adData?: Record<string, unknown> };
+  try {
+    const res = await apiFetch(`${BASE_URL}/api/card/${cardId}`);
+    rawJson = await res.text();
+    card = JSON.parse(rawJson);
+  } catch {
+    return null;
+  }
+  const a = card.adData ?? {};
+  return {
+    listingId: cardId,
+    title: str(a.title),
+    description: str(a.description),
+    availabilityInfo: str(a.availabilityInfo),
+    availabilityDate: str(a.availabilityDate),
+    rentTermInfo: str(a.rentTermInfo),
+    kitchenAppliances: str(a.kitchenApplianceInfo),
+    bathroomAppliances: str(a.bathroomApplianceInfo),
+    storageInfo: str(a.storageInfo),
+    balconyInfo: str(a.balconyInfo),
+    hasTerrace: boolOrNull(a.hasTerrace),
+    sauna: boolOrNull(a.buildingOverrideSauna),
+    saunaInfo: str(a.buildingOverrideSaunaInfo) ?? str(a.saunaInfo),
+    lift: boolOrNull(a.buildingOverrideLift),
+    heatingInfo: str(a.heatingInfo),
+    waterFee: numOrNull(a.waterFee),
+    waterFeeInfo: str(a.waterFeeInfo),
+    securityDepositInfo: str(a.securityDepositInfo),
+    otherTerms: str(a.otherTerms),
+    petsAllowedCode: numOrNull(a.petsAllowed),
+    conditionCode: numOrNull(a.apartmentCondition),
+    energyClass: str(a.buildingOverrideEnergyClass),
+    buildingTypeCode: numOrNull(a.buildingOverrideBuildingType),
+    buildingFloors: numOrNull(a.buildingOverrideFloors),
+    rawJson,
+  };
 }
 
 // --- Data parsing ---

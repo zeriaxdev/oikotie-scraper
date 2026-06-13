@@ -36,6 +36,38 @@ export function serializeValuation(v: Valuation) {
   };
 }
 
+/** Map a raw snake_case listing_details row to a camelCase API object (raw_json omitted). */
+export function serializeDetailRow(d: Record<string, unknown> | null) {
+  if (!d) return null;
+  const bool = (v: unknown) => (v == null ? null : v === 1);
+  return {
+    title: d.title,
+    description: d.description,
+    availabilityInfo: d.availability_info,
+    availabilityDate: d.availability_date,
+    rentTermInfo: d.rent_term_info,
+    kitchenAppliances: d.kitchen_appliances,
+    bathroomAppliances: d.bathroom_appliances,
+    storageInfo: d.storage_info,
+    balconyInfo: d.balcony_info,
+    hasTerrace: bool(d.has_terrace),
+    sauna: bool(d.sauna),
+    saunaInfo: d.sauna_info,
+    lift: bool(d.lift),
+    heatingInfo: d.heating_info,
+    waterFee: d.water_fee,
+    waterFeeInfo: d.water_fee_info,
+    securityDepositInfo: d.security_deposit_info,
+    otherTerms: d.other_terms,
+    petsAllowedCode: d.pets_allowed_code,
+    conditionCode: d.condition_code,
+    energyClass: d.energy_class,
+    buildingTypeCode: d.building_type_code,
+    buildingFloors: d.building_floors,
+    updatedAt: d.updated_at,
+  };
+}
+
 /** Map a raw snake_case listings row to a camelCase API object. */
 export function serializeListingRow(l: Record<string, unknown>) {
   return {
