@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   valuateListing,
   getCityModel,
@@ -6,14 +7,11 @@ import {
   serializeValuation,
   serializeDetailRow,
   eur,
-  pct,
 } from "@/lib/data";
+import { ValuationLede } from "@/components/valuation-lede";
+import { Stagger, Item, FadeUp } from "@/components/motion";
 
 export const dynamic = "force-dynamic";
-
-function verdictClass(z: number) {
-  return z <= -1 ? "v-pos" : z >= 1 ? "v-neg" : "v-neu";
-}
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idStr } = await params;
@@ -22,11 +20,14 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
 
   if (!v) {
     return (
-      <main className="wrap">
-        <a className="back" href="/">← Back</a>
-        <h1>Listing {id}</h1>
-        <p className="meta">
-          Can't analyze this listing — not found, missing price/size, or too little data for its city.
+      <main className="mx-auto max-w-6xl px-6 pt-10">
+        <Link href="/" className="eyebrow hover:text-foreground">
+          ← Market
+        </Link>
+        <h1 className="display mt-6 text-4xl">Listing {id}</h1>
+        <p className="mt-3 max-w-md text-muted-foreground">
+          Can&rsquo;t value this one — it&rsquo;s missing a price or size, or its city has too little
+          data to fit a model.
         </p>
       </main>
     );
@@ -37,10 +38,10 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const comparables = model ? findComparables(model, v.row) : [];
   const detail = serializeDetailRow(await getOrFetchDetail(id));
 
-  const yn = (b: boolean | null | undefined) => (b == null ? null : b ? "Yes" : "No");
-  const rows: [string, unknown][] = [];
+  const yn = (b: unknown) => (b == null ? null : b ? "Yes" : "No");
+  const rows: [string, string][] = [];
   const add = (k: string, x: unknown) => {
-    if (x != null && x !== "") rows.push([k, x]);
+    if (x != null && x !== "") rows.push([k, String(x)]);
   };
   if (detail) {
     add("Availability", detail.availabilityInfo);
@@ -49,14 +50,12 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
     add("Bathroom", detail.bathroomAppliances);
     add("Storage", detail.storageInfo);
     add("Balcony", detail.balconyInfo);
-    add("Terrace", yn(detail.hasTerrace as boolean | null));
+    add("Terrace", yn(detail.hasTerrace));
     add(
       "Sauna",
-      detail.sauna != null
-        ? yn(detail.sauna as boolean) + (detail.saunaInfo ? ` — ${detail.saunaInfo}` : "")
-        : null,
+      detail.sauna != null ? yn(detail.sauna) + (detail.saunaInfo ? ` — ${detail.saunaInfo}` : "") : null,
     );
-    add("Lift", yn(detail.lift as boolean | null));
+    add("Lift", yn(detail.lift));
     add("Heating", detail.heatingInfo);
     add("Energy class", detail.energyClass);
     add("Building floors", detail.buildingFloors);
@@ -66,114 +65,86 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <main className="wrap">
-      <a className="back" href="/">← Back to market</a>
-      <h1 style={{ marginTop: 12 }}>
-        <a href={val.url} target="_blank" rel="noreferrer" style={{ color: "var(--blue)" }}>
-          {val.address ?? `Listing ${id}`} ↗
-        </a>
-      </h1>
-      <p className="meta">
-        {[val.district, val.city, val.roomConfig, val.sizeM2 ? `${val.sizeM2} m²` : null]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
+    <main className="mx-auto max-w-6xl px-6 pt-8">
+      <FadeUp>
+        <Link href="/" className="eyebrow hover:text-foreground">
+          ← Market
+        </Link>
+      </FadeUp>
 
-      <div className="estrow">
-        <div>
-          <div className="meta">Asking</div>
-          <div className="big num">{eur(val.askingPrice)}</div>
-        </div>
-        <div>
-          <div className="meta">Model estimate</div>
-          <div className="big num" style={{ color: "var(--muted)" }}>{eur(val.expectedPrice)}</div>
-        </div>
-      </div>
+      <Stagger className="mt-6" delay={0.1}>
+        <Item>
+          <p className="eyebrow">
+            {[val.district, val.city, val.roomConfig, val.sizeM2 ? `${val.sizeM2} m²` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          <h1 className="display mt-2 text-[clamp(2.2rem,6vw,4rem)] font-medium leading-[1.02]">
+            <a href={val.url} target="_blank" rel="noreferrer" className="hover:text-primary">
+              {val.address ?? `Listing ${id}`}
+              <span className="ml-2 align-super text-xl text-muted-foreground">↗</span>
+            </a>
+          </h1>
+        </Item>
 
-      <div style={{ margin: "10px 0" }}>
-        <span className={`verdict ${verdictClass(val.zScore)}`}>{val.verdict}</span>
-        <span className="meta num" style={{ marginLeft: 10 }}>
-          edge {pct(val.edgePercent)} · z {val.zScore.toFixed(2)} · score {val.dealScore}/100
-        </span>
-      </div>
-      {val.flags.length > 0 && (
-        <div style={{ margin: "8px 0" }}>
-          {val.flags.map((f) => (
-            <span key={f} className="flag">{f}</span>
-          ))}
-        </div>
-      )}
+        <Item className="mt-8">
+          <ValuationLede v={val} />
+        </Item>
+      </Stagger>
 
-      <dl className="kv">
-        <dt>Confidence</dt>
-        <dd>
-          {val.confidence}{" "}
-          <span className="meta">R² {val.model.r2.toFixed(2)}, district n={val.model.districtN}</span>
-        </dd>
-        {val.districtPpm2Percentile != null && (
-          <>
-            <dt>€/m² in district</dt>
-            <dd className="num">{val.districtPpm2Percentile}th percentile</dd>
-          </>
-        )}
-        <dt>Demand</dt>
-        <dd className="num">
-          {val.visitsWeekly}/wk · {val.demandPercentile}th percentile in {val.city}
-        </dd>
-      </dl>
-
-      {rows.length > 0 && (
-        <>
-          <h2>Details</h2>
-          <dl className="kv">
-            {rows.map(([k, x]) => (
-              <div key={k} style={{ display: "contents" }}>
-                <dt>{k}</dt>
-                <dd>{String(x)}</dd>
-              </div>
-            ))}
-          </dl>
-        </>
-      )}
-
-      {comparables.length > 0 && (
-        <>
-          <h2>Closest comparables</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Address</th>
-                <th>Config</th>
-                <th className="r">Size</th>
-                <th className="r">Price</th>
-                <th className="r">€/m²</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparables.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <a href={`/listings/${c.id}`} style={{ color: "var(--blue)" }}>
-                      {c.address ?? "—"}
-                    </a>
-                  </td>
-                  <td>{c.room_config ?? "—"}</td>
-                  <td className="r num">{c.size_m2} m²</td>
-                  <td className="r num">{eur(c.price)}</td>
-                  <td className="r num">{(c.price / c.size_m2).toFixed(1)}</td>
-                </tr>
+      <div className="mt-16 grid grid-cols-1 gap-x-16 gap-y-12 lg:grid-cols-[1fr_1.1fr]">
+        {rows.length > 0 && (
+          <FadeUp>
+            <h2 className="eyebrow mb-2">Particulars</h2>
+            <dl>
+              {rows.map(([k, x]) => (
+                <div key={k} className="flex gap-6 rule py-2.5">
+                  <dt className="w-36 shrink-0 text-sm text-muted-foreground">{k}</dt>
+                  <dd className="text-sm">{x}</dd>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </>
-      )}
+            </dl>
+          </FadeUp>
+        )}
 
-      {detail?.description ? (
-        <>
-          <h2>Description</h2>
-          <p className="desc">{String(detail.description)}</p>
-        </>
-      ) : null}
+        <div>
+          {comparables.length > 0 && (
+            <FadeUp>
+              <h2 className="eyebrow mb-2">Closest comparables</h2>
+              <table className="w-full border-collapse">
+                <tbody>
+                  {comparables.map((c) => (
+                    <tr key={c.id} className="rule border-b align-baseline">
+                      <td className="py-2.5 pr-4">
+                        <Link href={`/listings/${c.id}`} className="font-serif hover:text-primary">
+                          {c.address ?? "—"}
+                        </Link>
+                        <span className="ml-2 text-xs text-muted-foreground">{c.room_config}</span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-right text-sm tabular-nums text-muted-foreground">
+                        {c.size_m2} m²
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums">{eur(c.price)}</td>
+                      <td className="py-2.5 pl-4 text-right text-sm tabular-nums text-muted-foreground">
+                        {(c.price / c.size_m2).toFixed(1)} €/m²
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </FadeUp>
+          )}
+
+          {detail?.description ? (
+            <FadeUp delay={0.05}>
+              <h2 className="eyebrow mb-2 mt-10">From the listing</h2>
+              <p className="max-w-prose whitespace-pre-wrap font-serif text-[0.95rem] leading-relaxed text-foreground/85">
+                {String(detail.description)}
+              </p>
+            </FadeUp>
+          ) : null}
+        </div>
+      </div>
     </main>
   );
 }

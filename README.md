@@ -126,6 +126,8 @@ import { getOrFetchDetail } from "../../../src/scraper/details";
 
 The two pieces that make this work: `experimental.externalDir` (to import modules from outside the app) and keeping `bun:sqlite` external in the webpack config (both in `apps/web/next.config.mjs`). For a Node-only Next.js app, use option 1 instead — `bun:sqlite` isn't available under Node, and this project intentionally avoids `better-sqlite3`.
 
+The UI is a Scandinavian-editorial "market report": Next.js 15 · React 19 · Tailwind v4 · shadcn/ui · Framer Motion, with Fraunces (display serif) and Hanken Grotesk (body). A home market report (price distribution, district premiums, ranked deal ledger) and a per-listing valuation spread with the edge gauge, particulars and comparables.
+
 ## MCP server
 
 Exposes the database and the valuation model to AI agents over stdio.
