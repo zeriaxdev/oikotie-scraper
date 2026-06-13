@@ -70,11 +70,11 @@ async function crawlCity(cityLocation: LocationFilter, type: "rent" | "sale") {
 
       try {
         const result = upsertListingsBatch(page.listings);
-        totalUpserted += page.listings.length;
+        totalUpserted += result.inserted + result.updated;
         totalErrors += result.errors;
         const pct = Math.min(100, Math.round(((page.offset + page.listings.length) / page.total) * 100));
         console.log(
-          `  [${pct}%] ${page.listings.length} listings (${result.inserted} new) — ${page.offset + page.listings.length}/${page.total}`,
+          `  [${pct}%] ${page.listings.length} listings (${result.inserted} new, ${result.updated} updated, ${result.unchanged} unchanged) — ${page.offset + page.listings.length}/${page.total}`,
         );
       } catch (err) {
         totalErrors++;

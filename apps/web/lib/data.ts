@@ -20,9 +20,12 @@ export {
   serializeValuation,
   serializeListingRow,
   serializeDetailRow,
+  getCostInputs,
 } from "../../../src/analysis";
+export type { CostInputs } from "../../../src/analysis";
 
 export { getOrFetchDetail } from "../../../src/scraper/details";
+export { getAreaProfile } from "../../../src/scraper/client";
 
 import { getAnalysisRows } from "../../../src/analysis";
 import { quantile } from "../../../src/analysis";

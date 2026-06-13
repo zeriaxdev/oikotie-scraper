@@ -9,7 +9,7 @@ export async function refreshTracked(): Promise<number> {
 
   for await (const page of paginateSearch(filters)) {
     const result = upsertListingsBatch(page.listings);
-    count += result.inserted;
+    count += result.inserted + result.updated;
   }
 
   return count;

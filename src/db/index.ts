@@ -115,7 +115,7 @@ function migrate(db: Database) {
   `);
 }
 
-const upsertListingSql = `
+const insertListingSql = `
   INSERT INTO listings (
     id, url, type, price, price_str, rooms, room_config, size_m2,
     build_year, floor, total_floors, address, district, city, zip_code,
@@ -126,26 +126,36 @@ const upsertListingSql = `
     $buildYear, $floor, $totalFloors, $address, $district, $city, $zipCode,
     $lat, $lng, $description, $securityDeposit, $maintenanceFee, $condition,
     $visits, $visitsWeekly, $companyName, $publishedAt, $priceChangedAt, $imageUrl
-  ) ON CONFLICT(id) DO UPDATE SET
-    price = excluded.price,
-    price_str = excluded.price_str,
-    visits = excluded.visits,
-    visits_weekly = excluded.visits_weekly,
-    price_changed_at = excluded.price_changed_at,
-    description = excluded.description,
-    image_url = excluded.image_url,
-    updated_at = datetime('now')
+  )
 `;
 
-export function upsertListing(listing: Listing): boolean {
+// Only these fields are worth a write. Volatile telemetry (visits) is not
+// enough on its own — re-scraping an otherwise-identical listing is a no-op.
+const updateListingSql = `
+  UPDATE listings SET
+    price = $price, price_str = $priceStr, description = $description,
+    price_changed_at = $priceChangedAt, image_url = $imageUrl,
+    maintenance_fee = $maintenanceFee, security_deposit = $securityDeposit,
+    visits = $visits, visits_weekly = $visitsWeekly,
+    updated_at = datetime('now')
+  WHERE id = $id
+`;
+
+type ExistingRow = {
+  price: number | null;
+  price_str: string | null;
+  description: string | null;
+  price_changed_at: string | null;
+  image_url: string | null;
+  maintenance_fee: number | null;
+  security_deposit: number | null;
+};
+
+export type UpsertStatus = "inserted" | "updated" | "unchanged";
+
+export function upsertListing(listing: Listing): UpsertStatus {
   const db = getDb();
-  const stmt = db.prepare(upsertListingSql);
-
-  const existingPrice = db
-    .prepare<{ price: number | null }, [number]>("SELECT price FROM listings WHERE id = ?")
-    .get(listing.id);
-
-  stmt.run({
+  const params = {
     $id: listing.id,
     $url: listing.url,
     $type: listing.type,
@@ -173,27 +183,64 @@ export function upsertListing(listing: Listing): boolean {
     $publishedAt: listing.publishedAt,
     $priceChangedAt: listing.priceChangedAt,
     $imageUrl: listing.imageUrl,
-  });
+  };
 
-  if (listing.price != null && existingPrice?.price !== listing.price) {
+  const existing = db
+    .prepare<ExistingRow, [number]>(
+      `SELECT price, price_str, description, price_changed_at, image_url,
+              maintenance_fee, security_deposit FROM listings WHERE id = ?`,
+    )
+    .get(listing.id);
+
+  if (!existing) {
+    db.prepare(insertListingSql).run(params);
+    if (listing.price != null) {
+      db.prepare("INSERT INTO price_history (listing_id, price) VALUES (?, ?)").run(
+        listing.id,
+        listing.price,
+      );
+    }
+    return "inserted";
+  }
+
+  // Substantive change? Telemetry-only drift doesn't count.
+  const substantiveChanged =
+    existing.price !== listing.price ||
+    existing.price_str !== listing.priceStr ||
+    existing.description !== listing.description ||
+    existing.price_changed_at !== listing.priceChangedAt ||
+    existing.image_url !== listing.imageUrl ||
+    existing.maintenance_fee !== listing.maintenanceFee ||
+    existing.security_deposit !== listing.securityDeposit;
+
+  if (!substantiveChanged) return "unchanged";
+
+  db.prepare(updateListingSql).run(params);
+  if (listing.price != null && existing.price !== listing.price) {
     db.prepare("INSERT INTO price_history (listing_id, price) VALUES (?, ?)").run(
       listing.id,
       listing.price,
     );
   }
-
-  return existingPrice === null;
+  return "updated";
 }
 
-export function upsertListingsBatch(listings: Listing[]): { inserted: number; errors: number } {
+export function upsertListingsBatch(
+  listings: Listing[],
+): { inserted: number; updated: number; unchanged: number; errors: number } {
   const db = getDb();
   let inserted = 0;
+  let updated = 0;
+  let unchanged = 0;
   let errors = 0;
 
   const tx = db.transaction(() => {
     for (const listing of listings) {
       try {
-        if (upsertListing(listing)) inserted++;
+        const status = upsertListing(listing);
+        if (status === "inserted") inserted++;
+        else if (status === "updated") updated++;
+        else unchanged++;
       } catch {
         errors++;
       }
@@ -201,7 +248,7 @@ export function upsertListingsBatch(listings: Listing[]): { inserted: number; er
   });
   tx();
 
-  return { inserted, errors };
+  return { inserted, updated, unchanged, errors };
 }
 
 export function startScrapeRun(type: string, filters?: object): number {

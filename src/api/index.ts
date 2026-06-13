@@ -24,6 +24,7 @@ import {
   serializeValuation,
   serializeListingRow,
   serializeDetailRow,
+  getCostInputs,
 } from "../analysis";
 import { getAreaProfile } from "../scraper/client";
 import { getOrFetchDetail } from "../scraper/details";
@@ -131,7 +132,7 @@ async function route(req: Request, url: URL): Promise<Response> {
 
   if (path === "/api/listings") return handleListings(url);
 
-  const detailRoute = path.match(/^\/api\/listings\/(\d+)(\/analyze|\/area|\/detail)?$/);
+  const detailRoute = path.match(/^\/api\/listings\/(\d+)(\/analyze|\/area|\/detail|\/cost)?$/);
   if (detailRoute) {
     const id = Number(detailRoute[1]);
     const sub = detailRoute[2];
@@ -143,6 +144,21 @@ async function route(req: Request, url: URL): Promise<Response> {
     if (sub === "/detail") {
       const d = await getOrFetchDetail(id);
       return d ? json(serializeDetailRow(d)) : json({ error: `No detail for ${id}` }, 404);
+    }
+    if (sub === "/cost") {
+      const listing = getListingById(id) as Record<string, unknown> | null;
+      if (!listing) return json({ error: `Listing ${id} not found` }, 404);
+      const detail = (await getOrFetchDetail(id)) ?? {};
+      const heating = String((detail as Record<string, unknown>).heating_info ?? "").toLowerCase();
+      const inputs = await getCostInputs({
+        id,
+        rent: (listing.price as number) ?? null,
+        maintenanceFee: (listing.maintenance_fee as number) ?? null,
+        waterPerPerson: ((detail as Record<string, unknown>).water_fee as number) ?? null,
+        sizeM2: (listing.size_m2 as number) ?? 0,
+        electricHeating: heating.includes("sähkö"),
+      });
+      return json(inputs);
     }
     const listing = getListingById(id) as Record<string, unknown> | null;
     if (!listing) return json({ error: `Listing ${id} not found` }, 404);
