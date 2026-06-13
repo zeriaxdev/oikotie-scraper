@@ -109,17 +109,22 @@ const deals = await fetch("http://localhost:3000/api/deals?city=Helsinki", {
 
 This keeps the scraper/model in one place and your UI in another. CORS is open, so a browser client can call it directly too.
 
-**2. Import the data layer directly (same database, no HTTP).** The `src/db` and `src/analysis` modules are plain functions over the SQLite file — point `DB_PATH` at `oikotie.db` and call them. Because they use `bun:sqlite`, the consuming app must run on **Bun** (e.g. `next dev` under Bun, or a Bun-based API). Example:
+**2. Import the data layer directly (same database, no HTTP).** The `src/db` and `src/analysis` modules are plain functions over the SQLite file — point `DB_PATH` at `oikotie.db` and call them. Because they use `bun:sqlite`, the consuming app must run on **Bun**. A working **Next.js** example lives in [`apps/web`](apps/web):
 
-```ts
-import { searchDb } from "oikotie/src/db";
-import { findSmartDeals, cityMarket } from "oikotie/src/analysis";
-
-const { listings } = searchDb({ type: "rent", city: "Helsinki", maxPrice: 900 });
-const deals = findSmartDeals("rent", { city: "Helsinki", minScore: 50 });
+```sh
+cd apps/web
+bun install
+bun run dev          # http://localhost:4000 — runs `bun --bun next dev`
 ```
 
-For a Node-only Next.js app, use option 1 — `bun:sqlite` isn't available under Node, and this project intentionally avoids `better-sqlite3`.
+It imports the analysis layer straight into server components (`apps/web/lib/data.ts`) and reads the same `oikotie.db` — no API hop:
+
+```ts
+import { findSmartDeals, valuateListing } from "../../../src/analysis";
+import { getOrFetchDetail } from "../../../src/scraper/details";
+```
+
+The two pieces that make this work: `experimental.externalDir` (to import modules from outside the app) and keeping `bun:sqlite` external in the webpack config (both in `apps/web/next.config.mjs`). For a Node-only Next.js app, use option 1 instead — `bun:sqlite` isn't available under Node, and this project intentionally avoids `better-sqlite3`.
 
 ## MCP server
 
