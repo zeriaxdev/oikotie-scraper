@@ -35,7 +35,7 @@ export function Distribution({ bins, lo, hi, median }: Props) {
           return (
             <motion.span
               key={i}
-              className={`flex-1 rounded-t-[1px] ${belowMedian ? "bg-primary/45" : "bg-foreground/20"}`}
+              className={`flex-1 ${belowMedian ? "bg-primary/70" : "bg-primary/25"}`}
               style={{ height: `${(count / max) * 100}%`, originY: 1, minHeight: 1 }}
               initial={{ scaleY: reduce ? 1 : 0, opacity: reduce ? 1 : 0.4 }}
               animate={{ scaleY: 1, opacity: 1 }}

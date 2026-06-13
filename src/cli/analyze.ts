@@ -127,7 +127,7 @@ export function analyze(id: number) {
 
 export function deals(
   type: "rent" | "sale" = "rent",
-  opts: { city?: string; minScore?: number; limit?: number; includeSuspicious?: boolean } = {},
+  opts: { city?: string; district?: string; minScore?: number; limit?: number; includeFlagged?: boolean } = {},
 ) {
   const results = findSmartDeals(type, opts);
 

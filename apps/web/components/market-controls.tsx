@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { motion } from "motion/react";
 
 export function MarketControls({ type, city }: { type: string; city?: string }) {
   const router = useRouter();
@@ -15,30 +14,25 @@ export function MarketControls({ type, city }: { type: string; city?: string }) 
   };
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex gap-6">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-4">
+      <span className="eyebrow text-primary-foreground/70">What are you renting?</span>
+      <div className="flex gap-2">
         {(["rent", "sale"] as const).map((t) => {
           const on = type === t;
           return (
             <button
               key={t}
               onClick={() => go(t, value)}
-              className="relative pb-1 text-left"
+              className={`pill ${
+                on
+                  ? "border-transparent bg-primary-foreground text-primary"
+                  : "border-primary-foreground/35 text-primary-foreground/85 hover:border-primary-foreground"
+              }`}
             >
               <span
-                className={`display text-xl capitalize transition-colors ${
-                  on ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t}
-              </span>
-              {on && (
-                <motion.span
-                  layoutId="type-underline"
-                  className="absolute -bottom-px left-0 right-0 h-0.5 bg-primary"
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                />
-              )}
+                className={`size-1.5 rounded-full ${on ? "bg-primary" : "bg-primary-foreground/60"}`}
+              />
+              {t === "rent" ? "Rentals" : "For sale"}
             </button>
           );
         })}
@@ -49,14 +43,13 @@ export function MarketControls({ type, city }: { type: string; city?: string }) 
           e.preventDefault();
           go(type, value);
         }}
-        className="flex items-baseline gap-2"
+        className="ml-auto flex items-center gap-2"
       >
-        <label className="eyebrow">Filter</label>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="any city"
-          className="w-32 border-0 border-b border-foreground/30 bg-transparent pb-0.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-primary"
+          placeholder="filter by city…"
+          className="w-40 border-0 border-b border-primary-foreground/40 bg-transparent pb-1 text-sm text-primary-foreground outline-none placeholder:text-primary-foreground/50 focus:border-primary-foreground"
         />
         {city && (
           <button
@@ -65,7 +58,7 @@ export function MarketControls({ type, city }: { type: string; city?: string }) 
               setValue("");
               go(type, "");
             }}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-xs text-primary-foreground/70 hover:text-primary-foreground"
           >
             clear
           </button>

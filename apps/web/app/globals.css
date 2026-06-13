@@ -3,9 +3,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Redaction — locally installed (Titus Kaphar × MCKL). Falls back to a
+   high-contrast serif if absent. Used only for display titles. */
+@font-face {
+  font-family: "Redaction";
+  src: local("Redaction"), local("Redaction Regular"), local("Redaction-Regular");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Redaction";
+  src: local("Redaction Bold"), local("Redaction-Bold");
+  font-weight: 700;
+  font-display: swap;
+}
+
 @theme inline {
-  --font-sans: var(--font-hanken);
-  --font-serif: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-display: "Redaction", "Times New Roman", Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -26,44 +41,45 @@
   --color-ring: var(--ring);
   --color-good: var(--good);
   --color-bad: var(--bad);
-  --color-paper: var(--paper);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
 }
 
 :root {
-  --radius: 0.25rem;
+  --radius: 0.5rem;
 
-  /* Warm ink-on-paper. Neutrals tinted toward the paper hue (~85deg). */
-  --paper: oklch(0.986 0.006 88);
-  --background: oklch(0.986 0.006 88);
-  --foreground: oklch(0.245 0.012 70);
+  /* Crisp paper-white canvas, cool-neutral ink. */
+  --background: oklch(0.994 0.001 255);
+  --foreground: oklch(0.205 0.012 264);
 
-  --card: oklch(0.995 0.004 88);
-  --card-foreground: oklch(0.245 0.012 70);
-  --popover: oklch(0.995 0.004 88);
-  --popover-foreground: oklch(0.245 0.012 70);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0.012 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0.012 264);
 
-  /* Sharp accent: deep pine — the signal of opportunity. */
-  --primary: oklch(0.46 0.082 152);
-  --primary-foreground: oklch(0.98 0.01 90);
+  /* Confident indigo-blue — the brand / interactive accent. */
+  --primary: oklch(0.515 0.202 266);
+  --primary-foreground: oklch(0.99 0 0);
 
-  --secondary: oklch(0.945 0.007 85);
-  --secondary-foreground: oklch(0.30 0.012 70);
-  --muted: oklch(0.945 0.007 85);
-  --muted-foreground: oklch(0.52 0.012 72);
-  --accent: oklch(0.955 0.012 90);
-  --accent-foreground: oklch(0.28 0.012 70);
+  --secondary: oklch(0.972 0.002 264);
+  --secondary-foreground: oklch(0.28 0.012 264);
+  --muted: oklch(0.972 0.002 264);
+  --muted-foreground: oklch(0.505 0.014 264);
+  --accent: oklch(0.966 0.004 264);
+  --accent-foreground: oklch(0.28 0.012 264);
 
-  /* Semantic deal signals */
-  --good: oklch(0.50 0.10 152);
-  --bad: oklch(0.55 0.15 38);
-  --destructive: oklch(0.55 0.15 38);
+  /* Deal-direction semantics, used only on the valuation signal. */
+  --good: oklch(0.55 0.13 155);
+  --bad: oklch(0.575 0.2 25);
+  --destructive: oklch(0.575 0.2 25);
 
-  --border: oklch(0.895 0.008 82);
-  --input: oklch(0.895 0.008 82);
-  --ring: oklch(0.46 0.082 152);
+  --border: oklch(0.905 0.004 264);
+  --input: oklch(0.905 0.004 264);
+  --ring: oklch(0.515 0.202 266);
+
+  /* Graph-paper grid line. */
+  --grid: oklch(0.92 0.005 264);
 }
 
 @layer base {
@@ -72,35 +88,87 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "cv01";
+    font-feature-settings: "cv05", "cv11", "ss01";
+    text-rendering: optimizeLegibility;
   }
-  /* Tabular, lining figures for all data. */
   .tnum {
     font-variant-numeric: tabular-nums lining-nums;
   }
   ::selection {
-    background: oklch(0.46 0.082 152 / 0.18);
+    background: oklch(0.515 0.202 266 / 0.16);
+  }
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 }
 
 @layer components {
-  /* Hairline rule with optional label, the spine of an editorial layout. */
-  .rule {
-    border-top: 1px solid var(--border);
+  /* Display title — Redaction, set tight. The one editorial gesture. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1;
+  }
+  /* Big numerics — Inter, bold and tightly kerned, tabular. */
+  .figure {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums lining-nums;
   }
   .eyebrow {
     font-family: var(--font-sans);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.09em;
     font-size: 0.6875rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--muted-foreground);
   }
-  .display {
-    font-family: var(--font-serif);
-    font-optical-sizing: auto;
-    letter-spacing: -0.012em;
-    line-height: 0.98;
+  /* Dashed structural frame, à la a blueprint margin. */
+  .frame {
+    border-inline: 1px dashed var(--border);
+  }
+  .divider {
+    border-top: 1px dashed var(--border);
+  }
+  /* Engineering graph-paper grid. */
+  .graph {
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  /* Indigo brand panel: faint grid + soft sheen so it reads hand-finished,
+     not a flat fill. */
+  .panel {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    background-image:
+      radial-gradient(110% 90% at 12% -10%, oklch(1 0 0 / 0.14), transparent 52%),
+      radial-gradient(120% 120% at 110% 120%, oklch(0.2 0.1 266 / 0.45), transparent 55%),
+      linear-gradient(to right, oklch(1 0 0 / 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 0.08) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+  }
+  /* Pill toggle, Minerva-style: dot + label, bold border when active. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
   }
 }
 

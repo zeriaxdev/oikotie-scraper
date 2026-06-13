@@ -136,17 +136,18 @@ server.registerTool(
   {
     title: "Find deals",
     description:
-      "Below-market listings ranked by deal score (0-100). A deal is a listing priced at least one robust standard deviation under its hedonic-model estimate. Suspiciously cheap listings (>45% under model — often shared flats or data errors) are excluded unless includeSuspicious is set.",
+      "Below-market listings ranked by deal score (0-100). A deal is priced at least one robust standard deviation under its hedonic-model estimate. Listings whose description reveals a renovation, sublet, shared/room rental, or short-term lease — or that are >45% under model (likely a room or data error) — are flagged and excluded unless includeFlagged is set.",
     inputSchema: {
       type: typeSchema,
       city: z.string().optional().describe("Restrict to one city"),
+      district: z.string().optional().describe("Restrict to one district"),
       minScore: z.number().int().min(0).max(100).default(40),
       limit: z.number().int().min(1).max(100).default(20),
-      includeSuspicious: z.boolean().default(false),
+      includeFlagged: z.boolean().default(false).describe("Include renovation/sublet/shared/suspicious listings"),
     },
   },
-  async ({ type, city, minScore, limit, includeSuspicious }) =>
-    json(findSmartDeals(type, { city, minScore, limit, includeSuspicious }).map(serializeValuation)),
+  async ({ type, city, district, minScore, limit, includeFlagged }) =>
+    json(findSmartDeals(type, { city, district, minScore, limit, includeFlagged }).map(serializeValuation)),
 );
 
 server.registerTool(

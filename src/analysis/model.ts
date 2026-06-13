@@ -31,7 +31,24 @@ export type AnalysisRow = {
   visits_weekly: number;
   published_at: string | null;
   price_changed_at: string | null;
+  description: string | null;
 };
+
+// Finnish description red-flags that explain an "underpriced" listing away:
+// it isn't a whole standard apartment at that price. These disqualify a deal.
+const RED_FLAG_PATTERNS: { flag: string; re: RegExp }[] = [
+  { flag: "renovation", re: /remont|saneeraus|peruskorja|putkiremont|linjasaneer|kunnostett.{0,12}vuo/i },
+  { flag: "short-term", re: /lyhytaikai|väliaikai|tilapäis|sijaisasun|kuukauden ajaksi/i },
+  { flag: "sublet", re: /alivuokra|edelleenvuokra/i },
+  { flag: "shared", re: /soluasun|soluhuone|solupaik|kimppakämp|kimppa-asun|jaettu asun|jaettava asun/i },
+];
+
+export function descriptionRedFlags(text: string | null): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  for (const { flag, re } of RED_FLAG_PATTERNS) if (re.test(text)) out.push(flag);
+  return out;
+}
 
 /** The API returns inconsistent casing ("HELSINKI", "helsinki"); fold to one form. */
 export function normalizeCity(city: string | null): string | null {
@@ -49,7 +66,7 @@ export function getAnalysisRows(type: "rent" | "sale", city?: string): AnalysisR
     .prepare(
       `SELECT id, url, type, price, size_m2, rooms, room_config, build_year,
               floor, total_floors, address, district, city,
-              visits, visits_weekly, published_at, price_changed_at
+              visits, visits_weekly, published_at, price_changed_at, description
        FROM listings
        WHERE type = $type AND price > 0 AND size_m2 >= 9 ${cityCond}`,
     )
@@ -240,6 +257,8 @@ export type Valuation = {
   demandPercentile: number;
   confidence: Confidence;
   flags: string[];
+  /** the listing isn't a comparable whole apartment (renovation/sublet/shared/etc.) */
+  disqualified: boolean;
   /** composite 0-100, only meaningful for underpriced listings */
   dealScore: number;
   model: { r2: number; n: number; districtN: number };
@@ -269,11 +288,15 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
   );
 
   const flags: string[] = [];
-  if (edge < -0.45) flags.push("suspicious"); // >45% under model — check for shared flat / data error
+  // Description red-flags explain the discount away — not a real deal.
+  const redFlags = descriptionRedFlags(row.description);
+  flags.push(...redFlags);
+  if (edge < -0.45) flags.push("suspicious"); // >45% under model — likely a room/shared flat or data error
   if (row.price_changed_at) flags.push("price-drop");
   if (row.published_at && Date.now() - Date.parse(row.published_at) < 7 * 86_400_000) {
     flags.push("new");
   }
+  const disqualified = redFlags.length > 0 || edge < -0.45;
 
   let confidence: Confidence;
   if (model.r2 >= 0.6 && districtN >= 20) confidence = "high";
@@ -281,13 +304,13 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
   else confidence = "low";
 
   // Composite score: edge size (55), statistical significance (20),
-  // confidence (15), demand validation (10). Suspicious capped at 30.
+  // confidence (15), demand validation (10). Disqualified listings capped low.
   const edgePts = Math.min(1, Math.max(0, -edge) / 0.3) * 55;
   const sigPts = Math.min(1, Math.max(0, -z) / 3) * 20;
   const confPts = confidence === "high" ? 15 : confidence === "medium" ? 9 : 3;
   const demandPts = demandPercentile * 10;
   let dealScore = Math.round(edgePts + sigPts + confPts + demandPts);
-  if (flags.includes("suspicious")) dealScore = Math.min(dealScore, 30);
+  if (disqualified) dealScore = Math.min(dealScore, 25);
 
   return {
     row,
@@ -298,6 +321,7 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
     demandPercentile,
     confidence,
     flags,
+    disqualified,
     dealScore,
     model: { r2: model.r2, n: model.nUsed, districtN },
   };
@@ -305,22 +329,26 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
 
 export type DealOptions = {
   city?: string;
+  district?: string;
   minScore?: number;
   limit?: number;
-  includeSuspicious?: boolean;
+  /** include renovation/sublet/shared/suspicious listings (off by default) */
+  includeFlagged?: boolean;
 };
 
 export function findSmartDeals(type: "rent" | "sale", opts: DealOptions = {}): Valuation[] {
   const models = opts.city
     ? [getCityModel(type, opts.city)].filter((m): m is CityModel => m != null)
     : getAllCityModels(type);
+  const district = opts.district?.toLowerCase();
 
   const deals: Valuation[] = [];
   for (const model of models) {
     for (const row of model.rows) {
+      if (district && row.district?.toLowerCase() !== district) continue;
       const v = valuate(model, row);
       if (v.z > -1) continue; // not meaningfully below market
-      if (!opts.includeSuspicious && v.flags.includes("suspicious")) continue;
+      if (!opts.includeFlagged && v.disqualified) continue;
       if (v.dealScore < (opts.minScore ?? 40)) continue;
       deals.push(v);
     }
@@ -336,7 +364,7 @@ export function valuateListing(id: number): Valuation | null {
     .prepare(
       `SELECT id, url, type, price, size_m2, rooms, room_config, build_year,
               floor, total_floors, address, district, city,
-              visits, visits_weekly, published_at, price_changed_at
+              visits, visits_weekly, published_at, price_changed_at, description
        FROM listings WHERE id = ? AND price > 0 AND size_m2 >= 9`,
     )
     .get(id) as AnalysisRow | null;

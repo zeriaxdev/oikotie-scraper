@@ -17,7 +17,10 @@ export type Deal = {
   dealScore: number;
   confidence: string;
   flags: string[];
+  disqualified: boolean;
 };
+
+const RED = new Set(["renovation", "sublet", "shared", "short-term", "suspicious"]);
 
 const eur = (n: number | null) => (n == null ? "—" : Math.round(n).toLocaleString("fi-FI") + " €");
 const pct = (n: number) => (n > 0 ? "+" : "") + n.toFixed(1) + "%";
@@ -63,7 +66,9 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
               key={d.id}
               variants={row}
               onClick={() => router.push(`/listings/${d.id}`)}
-              className="group cursor-pointer rule border-b align-baseline transition-colors hover:bg-accent/60 [&>td]:py-3 [&>td]:pr-4"
+              className={`group cursor-pointer rule border-b align-baseline transition-colors hover:bg-accent/60 [&>td]:py-3 [&>td]:pr-4 ${
+                d.disqualified ? "opacity-60" : ""
+              }`}
             >
               <td className="text-right font-serif text-sm tabular-nums text-muted-foreground">
                 {String(i + 1).padStart(2, "0")}
@@ -72,14 +77,23 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
                 <Link
                   href={`/listings/${d.id}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="font-serif text-[1.05rem] leading-tight transition-colors group-hover:text-primary"
+                  className="font-medium leading-tight transition-colors group-hover:text-primary"
                 >
                   {d.address ?? "—"}
                 </Link>
                 <span className="ml-2 inline text-xs text-muted-foreground sm:hidden">
                   {d.district}
                 </span>
-                {d.flags.includes("new") && (
+                {d.flags.filter((f) => RED.has(f)).map((f) => (
+                  <span
+                    key={f}
+                    className="ml-2 align-middle text-[0.625rem] uppercase tracking-wider"
+                    style={{ color: "var(--bad)" }}
+                  >
+                    {f}
+                  </span>
+                ))}
+                {d.flags.includes("new") && !d.disqualified && (
                   <span className="ml-2 align-middle text-[0.625rem] uppercase tracking-wider text-primary">
                     new
                   </span>
@@ -97,7 +111,7 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
                 {pct(d.edgePercent)}
               </td>
               <td className="hidden text-right md:table-cell">
-                <span className="font-serif text-lg tabular-nums">{d.dealScore}</span>
+                <span className="figure text-lg text-primary">{d.dealScore}</span>
               </td>
             </motion.tr>
           ))}

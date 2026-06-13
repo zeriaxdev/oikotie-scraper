@@ -10,7 +10,7 @@
 //   GET /api/listings/:id
 //   GET /api/listings/:id/analyze
 //   GET /api/listings/:id/area      (live network call to oikotie.fi)
-//   GET /api/deals?type=&city=&minScore=&limit=&includeSuspicious=
+//   GET /api/deals?type=&city=&district=&minScore=&limit=&includeFlagged=
 
 import { config } from "../config";
 import { getStats, searchDb, getListingById, getPriceHistory } from "../db";
@@ -158,9 +158,10 @@ async function route(req: Request, url: URL): Promise<Response> {
     return json(
       findSmartDeals(parseType(q.get("type")), {
         city: q.get("city") ?? undefined,
+        district: q.get("district") ?? undefined,
         minScore: num(q.get("minScore")) ?? 40,
         limit: Math.min(num(q.get("limit")) ?? 30, 100),
-        includeSuspicious: q.get("includeSuspicious") === "true",
+        includeFlagged: q.get("includeFlagged") === "true",
       }).map(serializeValuation),
     );
   }

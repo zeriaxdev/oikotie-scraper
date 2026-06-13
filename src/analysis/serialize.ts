@@ -28,6 +28,7 @@ export function serializeValuation(v: Valuation) {
     dealScore: v.dealScore,
     confidence: v.confidence,
     flags: v.flags,
+    disqualified: v.disqualified,
     districtPpm2Percentile:
       v.districtPercentile != null ? Math.round(v.districtPercentile * 100) : null,
     demandPercentile: Math.round(v.demandPercentile * 100),

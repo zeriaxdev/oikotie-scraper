@@ -5,15 +5,17 @@ import { cyan, dim, c } from "./format";
 function parseDealOpts(args: string[]) {
   const type = (args.find((a) => a === "sale" || a === "rent") ?? "rent") as "rent" | "sale";
   const city = args.find((a) => a.startsWith("--city="))?.split("=")[1];
+  const district = args.find((a) => a.startsWith("--district="))?.split("=")[1];
   const minScore = args.find((a) => a.startsWith("--min-score="))?.split("=")[1];
   const limit = args.find((a) => a.startsWith("--limit="))?.split("=")[1];
   return {
     type,
     opts: {
       city,
+      district,
       minScore: minScore ? Number(minScore) : undefined,
       limit: limit ? Number(limit) : undefined,
-      includeSuspicious: args.includes("--all"),
+      includeFlagged: args.includes("--all"),
     },
   };
 }

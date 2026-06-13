@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Stagger, Item } from "./motion";
+import { motion, useReducedMotion, type Variants } from "motion/react";
+import { EASE } from "./motion";
 
 type City = {
   city: string;
@@ -22,43 +23,59 @@ export function CityIndex({
   type: string;
   active?: string;
 }) {
+  const reduce = useReducedMotion();
+  const cell: Variants = {
+    hidden: { opacity: 0, y: reduce ? 0 : 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+  };
+
   return (
-    <Stagger className="grid grid-cols-1 gap-x-12 sm:grid-cols-2" gap={0.05}>
-      {cities.map((c) => {
-        const isActive = active?.toLowerCase() === c.city.toLowerCase();
-        return (
-          <Item key={c.city}>
-            <Link
-              href={`/?type=${type}&city=${encodeURIComponent(c.city)}`}
-              scroll={false}
-              className="group block rule py-4"
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <h3
-                  className={`display text-2xl transition-colors ${
-                    isActive ? "text-primary" : "group-hover:text-primary"
-                  }`}
-                >
-                  {c.city}
-                  <span className="ml-2 inline-block translate-x-0 text-base opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100">
+    <div>
+      <p className="eyebrow mb-5">Index · {cities.length} cities</p>
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={{ show: { transition: { staggerChildren: reduce ? 0 : 0.04 } } }}
+        className="grid grid-cols-1 border-l border-t border-border sm:grid-cols-2"
+      >
+        {cities.map((c) => {
+          const isActive = active?.toLowerCase() === c.city.toLowerCase();
+          return (
+            <motion.div key={c.city} variants={cell}>
+              <Link
+                href={`/?type=${type}&city=${encodeURIComponent(c.city)}`}
+                scroll={false}
+                className={`group block border-b border-r border-border px-6 py-6 transition-colors hover:bg-accent ${
+                  isActive ? "bg-accent" : ""
+                }`}
+              >
+                <div className="flex items-baseline justify-between">
+                  <h3
+                    className={`display text-2xl transition-colors ${
+                      isActive ? "text-primary" : "group-hover:text-primary"
+                    }`}
+                  >
+                    {c.city}
+                  </h3>
+                  <span className="translate-x-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100">
                     →
                   </span>
-                </h3>
-                <div className="display text-2xl tabular-nums">{eur(c.medianPrice)}</div>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between">
-                <span className="eyebrow">
-                  {c.count.toLocaleString("fi-FI")} listings
-                  {c.modelR2 != null && ` · model fit ${c.modelR2.toFixed(2)}`}
-                </span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {c.medianPpm2.toFixed(1)} €/m²
-                </span>
-              </div>
-            </Link>
-          </Item>
-        );
-      })}
-    </Stagger>
+                </div>
+                <div className="figure mt-3 text-2xl">{eur(c.medianPrice)}</div>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {c.count.toLocaleString("fi-FI")} listings
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {c.medianPpm2.toFixed(1)} €/m²
+                    {c.modelR2 != null && ` · R² ${c.modelR2.toFixed(2)}`}
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </div>
   );
 }
