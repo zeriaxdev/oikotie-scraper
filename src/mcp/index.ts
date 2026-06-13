@@ -14,7 +14,7 @@ import {
   getCityModel,
   cityMarket,
   allCitySummaries,
-  type Valuation,
+  serializeValuation,
 } from "../analysis";
 import { getAreaProfile } from "../scraper/client";
 
@@ -25,40 +25,6 @@ function json(data: unknown) {
 }
 
 const typeSchema = z.enum(["rent", "sale"]).default("rent").describe("Listing type");
-
-function serializeValuation(v: Valuation) {
-  return {
-    id: v.row.id,
-    url: v.row.url,
-    address: v.row.address,
-    district: v.row.district,
-    city: v.row.city,
-    roomConfig: v.row.room_config,
-    sizeM2: v.row.size_m2,
-    askingPrice: v.row.price,
-    expectedPrice: Math.round(v.expectedPrice),
-    edgePercent: Math.round(v.edge * 1000) / 10,
-    zScore: Math.round(v.z * 100) / 100,
-    verdict:
-      v.z <= -2
-        ? "significantly below market"
-        : v.z <= -1
-          ? "below market"
-          : v.z < 1
-            ? "fair price"
-            : v.z < 2
-              ? "above market"
-              : "significantly above market",
-    dealScore: v.dealScore,
-    confidence: v.confidence,
-    flags: v.flags,
-    districtPpm2Percentile:
-      v.districtPercentile != null ? Math.round(v.districtPercentile * 100) : null,
-    demandPercentile: Math.round(v.demandPercentile * 100),
-    visitsWeekly: v.row.visits_weekly,
-    model: v.model,
-  };
-}
 
 server.registerTool(
   "db_stats",

@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>oikotie analyzer</title>
+    <style>
+      :root {
+        --bg: #0c0e12;
+        --panel: #14171d;
+        --panel-2: #1a1e26;
+        --line: #262b35;
+        --text: #e6e9ef;
+        --muted: #8b93a3;
+        --faint: #5a6273;
+        --accent: #3ddc97;
+        --accent-dim: #1f7a57;
+        --red: #ff6b6b;
+        --amber: #ffc861;
+        --blue: #6aa9ff;
+        --radius: 12px;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+      .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+      a { color: var(--blue); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      header {
+        display: flex; align-items: center; gap: 20px;
+        padding: 14px 24px; border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; background: rgba(12,14,18,.85);
+        backdrop-filter: blur(12px); z-index: 20;
+      }
+      .brand { font-weight: 700; letter-spacing: -.02em; font-size: 16px; }
+      .brand span { color: var(--accent); }
+      .grow { flex: 1; }
+
+      .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line);
+             border-radius: 999px; padding: 3px; }
+      .seg button { all: unset; cursor: pointer; padding: 5px 14px; border-radius: 999px;
+                    color: var(--muted); font-weight: 600; font-size: 13px; }
+      .seg button.on { background: var(--accent); color: #04130d; }
+
+      nav.tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+      nav.tabs button { all: unset; cursor: pointer; padding: 12px 16px; color: var(--muted);
+                        font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+      nav.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+
+      main { padding: 24px; max-width: 1180px; margin: 0 auto; }
+
+      .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; align-items: flex-end; }
+      .field { display: flex; flex-direction: column; gap: 5px; }
+      .field label { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+      .field input, .field select {
+        background: var(--panel); border: 1px solid var(--line); color: var(--text);
+        border-radius: 8px; padding: 8px 10px; font-size: 13px; min-width: 110px;
+      }
+      .field input:focus, .field select:focus { outline: none; border-color: var(--accent-dim); }
+      .btn { all: unset; cursor: pointer; background: var(--accent); color: #04130d; font-weight: 700;
+             padding: 9px 16px; border-radius: 8px; font-size: 13px; }
+      .btn.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+              padding: 16px; cursor: pointer; transition: border-color .15s, transform .1s; }
+      .card:hover { border-color: var(--accent-dim); transform: translateY(-1px); }
+      .card h3 { margin: 0 0 8px; font-size: 15px; }
+      .card .big { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+      .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+      .chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+              background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      thead th { text-align: left; color: var(--faint); font-weight: 600; font-size: 11px;
+                 text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px;
+                 border-bottom: 1px solid var(--line); position: sticky; top: 0; }
+      tbody td { padding: 9px 10px; border-bottom: 1px solid var(--panel-2); }
+      tbody tr { cursor: pointer; }
+      tbody tr:hover td { background: var(--panel); }
+      td.r, th.r { text-align: right; }
+
+      .pos { color: var(--accent); } .neg { color: var(--red); } .neu { color: var(--amber); }
+      .score { font-weight: 700; }
+
+      .meta { color: var(--muted); font-size: 12px; margin: 12px 2px; }
+      .empty { color: var(--faint); padding: 40px; text-align: center; }
+      .spark { display: inline-flex; gap: 1px; align-items: flex-end; height: 22px; }
+      .spark i { width: 4px; background: var(--accent-dim); border-radius: 1px; }
+
+      /* drawer */
+      .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none;
+               transition: opacity .2s; z-index: 40; }
+      .scrim.open { opacity: 1; pointer-events: auto; }
+      .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 94vw);
+                background: var(--panel); border-left: 1px solid var(--line); z-index: 50;
+                transform: translateX(100%); transition: transform .25s ease; overflow-y: auto; }
+      .drawer.open { transform: translateX(0); }
+      .drawer-head { padding: 20px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0;
+                     background: var(--panel); display: flex; justify-content: space-between; gap: 12px; }
+      .drawer-body { padding: 24px; }
+      .close { all: unset; cursor: pointer; color: var(--muted); font-size: 22px; line-height: 1; }
+
+      .verdict { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+      .v-pos { background: rgba(61,220,151,.14); color: var(--accent); }
+      .v-neu { background: rgba(255,200,97,.14); color: var(--amber); }
+      .v-neg { background: rgba(255,107,107,.14); color: var(--red); }
+
+      .gauge { margin: 18px 0; }
+      .gauge .bar { height: 10px; background: var(--panel-2); border-radius: 999px; position: relative; overflow: hidden; }
+      .gauge .fill { position: absolute; top: 0; bottom: 0; }
+      .gauge .labels { display: flex; justify-content: space-between; margin-top: 6px;
+                       color: var(--muted); font-size: 12px; }
+
+      .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; margin: 16px 0; }
+      .kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 600; }
+      h4.section { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint);
+                   margin: 24px 0 10px; border-top: 1px solid var(--line); padding-top: 16px; }
+      .flag { font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-right: 6px;
+              background: var(--panel-2); border: 1px solid var(--line); color: var(--amber); }
+      .loading { color: var(--faint); padding: 30px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">oikotie <span>analyzer</span></div>
+      <div class="seg" id="typeSeg">
+        <button data-type="rent" class="on">Rent</button>
+        <button data-type="sale">Sale</button>
+      </div>
+      <div class="grow"></div>
+      <div class="meta" id="statline"></div>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="market" class="on">Market</button>
+      <button data-tab="search">Search</button>
+      <button data-tab="deals">Deals</button>
+    </nav>
+
+    <main id="view"></main>
+
+    <div class="scrim" id="scrim"></div>
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <div id="drawerTitle" style="font-weight:700"></div>
+        <button class="close" id="drawerClose">×</button>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+    </aside>
+
+    <script>
+      const state = { type: "rent", tab: "market", city: "" };
+      const api = (p) => fetch(p).then((r) => r.json());
+      const $ = (s) => document.querySelector(s);
+      const view = $("#view");
+
+      const eur = (n) => (n == null ? "—" : Math.round(n).toLocaleString("fi-FI") + " €");
+      const pct = (n) => (n == null ? "—" : (n > 0 ? "+" : "") + n.toFixed(1) + "%");
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const edgeClass = (n) => (n < -2 ? "pos" : n > 2 ? "neg" : "neu");
+
+      async function loadStats() {
+        const s = await api("/api/stats");
+        $("#statline").textContent =
+          s.total.toLocaleString("fi-FI") + " listings · " +
+          s.rent.toLocaleString("fi-FI") + " rent · " + s.sale.toLocaleString("fi-FI") + " sale";
+      }
+
+      // ---- Market ----
+      async function renderMarket() {
+        view.innerHTML = '<div class="loading">Loading market…</div>';
+        const cities = await api("/api/cities?type=" + state.type);
+        const top = cities.filter((c) => c.count >= 20);
+        view.innerHTML =
+          '<div class="cards">' +
+          top
+            .map(
+              (c) => `
+            <div class="card" data-city="${esc(c.city)}">
+              <h3>${esc(c.city)}</h3>
+              <div class="big num">${eur(c.medianPrice)}</div>
+              <div class="sub num">median · ${c.medianPpm2.toFixed(1)} €/m²</div>
+              <div style="margin-top:10px;display:flex;gap:6px;align-items:center">
+                <span class="chip num">${c.count.toLocaleString("fi-FI")} listings</span>
+                ${c.modelR2 != null ? `<span class="chip num">R² ${c.modelR2.toFixed(2)}</span>` : ""}
+              </div>
+            </div>`,
+            )
+            .join("") +
+          "</div>";
+        view.querySelectorAll(".card").forEach((el) =>
+          el.addEventListener("click", () => renderCityMarket(el.dataset.city)),
+        );
+      }
+
+      async function renderCityMarket(city) {
+        view.innerHTML = '<div class="loading">Loading ' + esc(city) + "…</div>";
+        const m = await api("/api/market?type=" + state.type + "&city=" + encodeURIComponent(city));
+        if (m.error) { view.innerHTML = '<div class="empty">' + esc(m.error) + "</div>"; return; }
+        const bandRows = m.sizeBands
+          .map((b) => `<tr><td>${esc(b.band)}</td><td class="r num">${b.count}</td>
+            <td class="r num">${eur(b.medianPrice)}</td><td class="r num">${b.medianPpm2.toFixed(1)}</td></tr>`)
+          .join("");
+        const distRows = m.districts
+          .map(
+            (d) => `<tr><td>${esc(d.district)}</td><td class="r num">${d.count}</td>
+            <td class="r num">${eur(d.medianPrice)}</td><td class="r num">${d.medianPpm2.toFixed(1)}</td>
+            <td class="r num">${d.p25Ppm2.toFixed(0)}–${d.p75Ppm2.toFixed(0)}</td>
+            <td class="r num ${d.premium == null ? "" : d.premium > 0 ? "neg" : "pos"}">${d.premium == null ? "—" : pct(d.premium * 100)}</td>
+            <td class="r num">${Math.round(d.medianVisitsWeekly)}</td></tr>`,
+          )
+          .join("");
+        view.innerHTML = `
+          <button class="btn ghost" id="back">← All cities</button>
+          <h2 style="margin:16px 2px 4px">${esc(m.city)} <span class="chip num">${m.count.toLocaleString("fi-FI")}</span></h2>
+          <div class="meta num">Median ${eur(m.medianPrice)} · IQR ${eur(m.p25Price)}–${eur(m.p75Price)}
+            · ${m.medianPpm2.toFixed(1)} €/m²${m.modelR2 != null ? " · model R² " + m.modelR2.toFixed(2) : ""}</div>
+          <h4 class="section">Price by size band</h4>
+          <table><thead><tr><th>Band</th><th class="r">#</th><th class="r">Median</th><th class="r">€/m²</th></tr></thead>
+            <tbody>${bandRows}</tbody></table>
+          <div class="meta">Small flats always cost more per m² — compare within a band.</div>
+          <h4 class="section">Districts — priciest first</h4>
+          <table><thead><tr><th>District</th><th class="r">#</th><th class="r">Median</th><th class="r">€/m²</th>
+            <th class="r">IQR €/m²</th><th class="r">Premium</th><th class="r">Views/wk</th></tr></thead>
+            <tbody>${distRows}</tbody></table>
+          <div class="meta">Premium = what the model attributes to location alone (controls for size, rooms, age, floor).</div>`;
+        $("#back").addEventListener("click", renderMarket);
+      }
+
+      // ---- Search ----
+      function filterBar(extra = "") {
+        return `
+          <div class="filters">
+            <div class="field"><label>City</label><input id="f-city" placeholder="Helsinki"></div>
+            <div class="field"><label>District</label><input id="f-district" placeholder="Kallio"></div>
+            <div class="field"><label>Min €</label><input id="f-minPrice" class="num" type="number"></div>
+            <div class="field"><label>Max €</label><input id="f-maxPrice" class="num" type="number"></div>
+            <div class="field"><label>Min m²</label><input id="f-minSize" class="num" type="number"></div>
+            <div class="field"><label>Max m²</label><input id="f-maxSize" class="num" type="number"></div>
+            <div class="field"><label>Rooms</label><input id="f-rooms" class="num" type="number"></div>
+            <div class="field"><label>Sort</label><select id="f-sort">
+              <option value="price">Price ↑</option><option value="-price">Price ↓</option>
+              <option value="size">Size ↑</option><option value="-size">Size ↓</option>
+              <option value="newest">Newest</option><option value="popular">Most viewed</option>
+            </select></div>
+            ${extra}
+            <button class="btn" id="go">Search</button>
+          </div>`;
+      }
+
+      let searchState = { offset: 0 };
+      async function renderSearch() {
+        view.innerHTML = filterBar() + '<div id="results"></div>';
+        $("#go").addEventListener("click", () => { searchState.offset = 0; runSearch(); });
+        view.querySelectorAll("input").forEach((i) =>
+          i.addEventListener("keydown", (e) => { if (e.key === "Enter") { searchState.offset = 0; runSearch(); } }),
+        );
+        runSearch();
+      }
+
+      function fval(id) { const v = $("#" + id)?.value.trim(); return v ? v : ""; }
+      async function runSearch() {
+        const q = new URLSearchParams({ type: state.type, limit: "25", offset: String(searchState.offset) });
+        for (const [k, id] of [["city","f-city"],["district","f-district"],["minPrice","f-minPrice"],
+          ["maxPrice","f-maxPrice"],["minSize","f-minSize"],["maxSize","f-maxSize"],["rooms","f-rooms"],["sort","f-sort"]]) {
+          const v = fval(id); if (v) q.set(k, v);
+        }
+        $("#results").innerHTML = '<div class="loading">Searching…</div>';
+        const data = await api("/api/listings?" + q);
+        if (!data.listings.length) { $("#results").innerHTML = '<div class="empty">No listings match.</div>'; return; }
+        $("#results").innerHTML =
+          `<div class="meta num">Showing ${data.offset + 1}–${data.offset + data.count} of ${data.total.toLocaleString("fi-FI")}</div>` +
+          `<table><thead><tr><th>Address</th><th>District</th><th class="r">Price</th><th class="r">Size</th>
+             <th class="r">€/m²</th><th class="r">Rooms</th><th class="r">Views/wk</th></tr></thead><tbody>` +
+          data.listings
+            .map(
+              (l) => `<tr data-id="${l.id}"><td>${esc(l.address) || "—"}</td><td>${esc(l.district) || "—"}</td>
+                <td class="r num">${eur(l.price)}</td><td class="r num">${l.sizeM2 ?? "—"} m²</td>
+                <td class="r num">${l.pricePerM2 ?? "—"}</td><td class="r num">${esc(l.roomConfig) || l.rooms || "—"}</td>
+                <td class="r num">${l.visitsWeekly ?? 0}</td></tr>`,
+            )
+            .join("") +
+          `</tbody></table>
+           <div class="filters" style="margin-top:14px">
+             <button class="btn ghost" id="prev" ${data.offset === 0 ? "disabled" : ""}>← Prev</button>
+             <button class="btn ghost" id="next" ${data.offset + data.count >= data.total ? "disabled" : ""}>Next →</button>
+           </div>`;
+        $("#results").querySelectorAll("tr[data-id]").forEach((r) =>
+          r.addEventListener("click", () => analyze(r.dataset.id)),
+        );
+        $("#prev")?.addEventListener("click", () => { searchState.offset = Math.max(0, searchState.offset - 25); runSearch(); });
+        $("#next")?.addEventListener("click", () => { searchState.offset += 25; runSearch(); });
+      }
+
+      // ---- Deals ----
+      async function renderDeals() {
+        view.innerHTML =
+          filterBar(`<div class="field"><label>Min score</label><input id="f-minScore" class="num" type="number" value="40"></div>`)
+            .replace('id="go">Search', 'id="go">Find deals');
+        // hide irrelevant filters for deals
+        ["f-district","f-minPrice","f-maxPrice","f-minSize","f-maxSize","f-rooms","f-sort"].forEach((id)=>{
+          const fld = $("#"+id)?.closest(".field"); if (fld) fld.style.display="none";
+        });
+        view.insertAdjacentHTML("beforeend", '<div id="results"></div>');
+        $("#go").addEventListener("click", runDeals);
+        $("#f-city").addEventListener("keydown",(e)=>{ if(e.key==="Enter") runDeals(); });
+        runDeals();
+      }
+      async function runDeals() {
+        const q = new URLSearchParams({ type: state.type, limit: "40" });
+        if (fval("f-city")) q.set("city", fval("f-city"));
+        if (fval("f-minScore")) q.set("minScore", fval("f-minScore"));
+        $("#results").innerHTML = '<div class="loading">Scoring listings…</div>';
+        const deals = await api("/api/deals?" + q);
+        if (!deals.length) { $("#results").innerHTML = '<div class="empty">No deals at this threshold.</div>'; return; }
+        $("#results").innerHTML =
+          `<div class="meta">${deals.length} listings priced below the model estimate, ranked by deal score.</div>` +
+          `<table><thead><tr><th class="r">Score</th><th>Address</th><th>District</th><th class="r">Asking</th>
+             <th class="r">Estimate</th><th class="r">Edge</th><th class="r">z</th><th>Conf</th></tr></thead><tbody>` +
+          deals
+            .map(
+              (d) => `<tr data-id="${d.id}"><td class="r score pos num">${d.dealScore}</td>
+                <td>${esc(d.address) || "—"}</td><td>${esc(d.district) || "—"}</td>
+                <td class="r num">${eur(d.askingPrice)}</td><td class="r num">${eur(d.expectedPrice)}</td>
+                <td class="r num ${edgeClass(d.zScore)}">${pct(d.edgePercent)}</td>
+                <td class="r num">${d.zScore.toFixed(1)}</td><td>${esc(d.confidence)}</td></tr>`,
+            )
+            .join("") +
+          `</tbody></table>`;
+        $("#results").querySelectorAll("tr[data-id]").forEach((r) =>
+          r.addEventListener("click", () => analyze(r.dataset.id)),
+        );
+      }
+
+      // ---- Analyze drawer ----
+      function openDrawer() { $("#scrim").classList.add("open"); $("#drawer").classList.add("open"); }
+      function closeDrawer() { $("#scrim").classList.remove("open"); $("#drawer").classList.remove("open"); }
+      $("#scrim").addEventListener("click", closeDrawer);
+      $("#drawerClose").addEventListener("click", closeDrawer);
+
+      async function analyze(id) {
+        openDrawer();
+        $("#drawerTitle").textContent = "Listing " + id;
+        $("#drawerBody").innerHTML = '<div class="loading">Valuing…</div>';
+        const data = await api("/api/listings/" + id + "/analyze");
+        if (data.error) { $("#drawerBody").innerHTML = '<div class="empty">' + esc(data.error) + "</div>"; return; }
+        const v = data.valuation;
+        const vClass = v.zScore <= -1 ? "v-pos" : v.zScore >= 1 ? "v-neg" : "v-neu";
+        // gauge: position asking relative to estimate, clamp ±40%
+        const e = Math.max(-40, Math.min(40, v.edgePercent));
+        const left = ((e + 40) / 80) * 100;
+        const fillColor = v.edgePercent < -2 ? "var(--accent)" : v.edgePercent > 2 ? "var(--red)" : "var(--amber)";
+        $("#drawerTitle").innerHTML = `<a href="${esc(v.url)}" target="_blank">${esc(v.address) || "Listing " + id} ↗</a>`;
+        const comps = data.comparables
+          .map(
+            (c) => `<tr data-id="${c.id}"><td>${esc(c.address) || "—"}</td><td>${esc(c.roomConfig) || "—"}</td>
+              <td class="r num">${c.sizeM2} m²</td><td class="r num">${eur(c.price)}</td><td class="r num">${c.pricePerM2}</td></tr>`,
+          )
+          .join("");
+        const hist =
+          data.priceHistory.length > 1
+            ? `<h4 class="section">Price history</h4><table><tbody>` +
+              data.priceHistory.map((h) => `<tr><td class="num">${esc(h.scrapedAt)}</td><td class="r num">${eur(h.price)}</td></tr>`).join("") +
+              `</tbody></table>`
+            : "";
+        $("#drawerBody").innerHTML = `
+          <div class="meta">${esc(v.district) || ""} · ${esc(v.city) || ""} · ${esc(v.roomConfig) || ""} · ${v.sizeM2} m²</div>
+          <div style="display:flex;gap:24px;align-items:baseline;margin:8px 0 4px">
+            <div><div class="meta" style="margin:0">Asking</div><div class="big num" style="font-size:26px;font-weight:700">${eur(v.askingPrice)}</div></div>
+            <div><div class="meta" style="margin:0">Model estimate</div><div class="big num" style="font-size:26px;font-weight:700;color:var(--muted)">${eur(v.expectedPrice)}</div></div>
+          </div>
+          <div style="margin:10px 0"><span class="verdict ${vClass}">${esc(v.verdict)}</span>
+            <span class="num" style="color:var(--muted);margin-left:10px">edge ${pct(v.edgePercent)} · z ${v.zScore.toFixed(2)}</span></div>
+          <div class="gauge">
+            <div class="bar"><div class="fill" style="left:calc(${left}% - 6px);width:12px;background:${fillColor};height:100%"></div></div>
+            <div class="labels"><span>−40% (cheap)</span><span>fair</span><span>+40% (dear)</span></div>
+          </div>
+          ${v.flags.length ? '<div style="margin:8px 0">' + v.flags.map((f) => `<span class="flag">${esc(f)}</span>`).join("") + "</div>" : ""}
+          <dl class="kv">
+            <dt>Deal score</dt><dd class="num">${v.dealScore} / 100</dd>
+            <dt>Confidence</dt><dd>${esc(v.confidence)} <span class="meta">R² ${v.model.r2.toFixed(2)}, district n=${v.model.districtN}</span></dd>
+            ${v.districtPpm2Percentile != null ? `<dt>€/m² in district</dt><dd class="num">${v.districtPpm2Percentile}th percentile</dd>` : ""}
+            <dt>Demand</dt><dd class="num">${v.visitsWeekly}/wk · ${v.demandPercentile}th pct in ${esc(v.city)}</dd>
+          </dl>
+          ${comps ? `<h4 class="section">Closest comparables</h4>
+            <table><thead><tr><th>Address</th><th>Config</th><th class="r">Size</th><th class="r">Price</th><th class="r">€/m²</th></tr></thead>
+            <tbody>${comps}</tbody></table>` : ""}
+          ${hist}`;
+        $("#drawerBody").querySelectorAll("tr[data-id]").forEach((r) =>
+          r.addEventListener("click", () => analyze(r.dataset.id)),
+        );
+      }
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+      // ---- routing ----
+      function render() {
+        if (state.tab === "market") renderMarket();
+        else if (state.tab === "search") renderSearch();
+        else renderDeals();
+      }
+      $("#tabs").addEventListener("click", (e) => {
+        const b = e.target.closest("button"); if (!b) return;
+        state.tab = b.dataset.tab;
+        $("#tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        render();
+      });
+      $("#typeSeg").addEventListener("click", (e) => {
+        const b = e.target.closest("button"); if (!b) return;
+        state.type = b.dataset.type;
+        $("#typeSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        render();
+      });
+
+      loadStats();
+      render();
+    </script>
+  </body>
+</html>

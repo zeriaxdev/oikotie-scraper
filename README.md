@@ -59,6 +59,31 @@ log(price) ~ log(size) + rooms + age + age² + floor position + district fixed e
 
 `analyze <id>` shows the estimate with an error band, the verdict, percentiles, and the closest same-district comparables so you can sanity-check the model with your own eyes.
 
+## Web app & HTTP API
+
+```sh
+bun run api          # http://localhost:3000
+bun run dev          # same, with hot reload
+PORT=8080 bun run api
+```
+
+Open the root URL for the **analyzer UI** — a single-page app to browse the market, search with filters, and inspect any listing's valuation (model estimate vs asking, edge gauge, comparables, price history) in a side drawer.
+
+The same server exposes a JSON API (CORS-enabled, so a separate frontend can call it too):
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/stats` | Counts, cities, last scrape run |
+| `GET /api/cities?type=` | Per-city summaries (median, €/m², model R²) |
+| `GET /api/market?type=&city=` | City detail: size bands + district premiums |
+| `GET /api/listings?type=&city=&district=&minPrice=&maxPrice=&minSize=&maxSize=&rooms=&sort=&limit=&offset=` | Filtered, paginated listings |
+| `GET /api/listings/:id` | Full detail + price history |
+| `GET /api/listings/:id/analyze` | Valuation + comparables + price history |
+| `GET /api/listings/:id/area` | Live area profile (transit, services, demographics) |
+| `GET /api/deals?type=&city=&minScore=&limit=&includeSuspicious=` | Model-scored below-market listings |
+
+`sort` accepts `price`, `-price`, `size`, `-size`, `newest`, `popular`.
+
 ## MCP server
 
 Exposes the database and the valuation model to AI agents over stdio.
