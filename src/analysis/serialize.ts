@@ -23,6 +23,8 @@ export function serializeValuation(v: Valuation) {
     sizeM2: v.row.size_m2,
     askingPrice: v.row.price,
     expectedPrice: Math.round(v.expectedPrice),
+    estimateLow: Math.round(v.estimateLow),
+    estimateHigh: Math.round(v.estimateHigh),
     edgePercent: Math.round(v.edge * 1000) / 10,
     zScore: Math.round(v.z * 100) / 100,
     verdict: verdictFor(v.z),

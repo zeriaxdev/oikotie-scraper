@@ -34,6 +34,8 @@ export type AnalysisRow = {
   published_at: string | null;
   price_changed_at: string | null;
   description: string | null;
+  /** derived: furnished (controls a real price premium in the model) */
+  furnished: boolean;
 };
 
 // Finnish description red-flags that explain an "underpriced" listing away:
@@ -43,6 +45,8 @@ const RED_FLAG_PATTERNS: { flag: string; re: RegExp }[] = [
   { flag: "short-term", re: /lyhytaikai|väliaikai|tilapäis|sijaisasun|kuukauden ajaksi/i },
   { flag: "sublet", re: /alivuokra|edelleenvuokra/i },
   { flag: "shared", re: /soluasun|soluhuone|solupaik|kimppakämp|kimppa-asun|jaettu asun|jaettava asun/i },
+  // serviced / room rentals (often English-language listings) — not a whole flat
+  { flag: "serviced", re: /\broom for (one|two|three|\d)|\bcozy room\b|\bper person\b|serviced apartment|\bshared (flat|apartment|kitchen|bathroom)\b/i },
 ];
 
 export function descriptionRedFlags(text: string | null): string[] {
@@ -50,6 +54,14 @@ export function descriptionRedFlags(text: string | null): string[] {
   const out: string[] = [];
   for (const { flag, re } of RED_FLAG_PATTERNS) if (re.test(text)) out.push(flag);
   return out;
+}
+
+/** Furnished rentals carry a real premium; detect to control for it in the model. */
+export function isFurnished(text: string | null): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  if (/kalustamaton|unfurnished/.test(t)) return false;
+  return /kalustettu|furnished/.test(t);
 }
 
 /** The API returns inconsistent casing ("HELSINKI", "helsinki"); fold to one form. */
@@ -73,7 +85,10 @@ export function getAnalysisRows(type: "rent" | "sale", city?: string): AnalysisR
        WHERE type = $type AND price > 0 AND size_m2 >= 9 ${cityCond}`,
     )
     .all(params) as AnalysisRow[];
-  for (const r of rows) r.city = normalizeCity(r.city);
+  for (const r of rows) {
+    r.city = normalizeCity(r.city);
+    r.furnished = isFurnished(r.description);
+  }
   return rows;
 }
 
@@ -101,7 +116,7 @@ export type CityModel = {
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
-const NUM_BASE_FEATURES = 6; // intercept, log(size), rooms, age, age², floorRatio
+const NUM_BASE_FEATURES = 7; // intercept, log(size), rooms, age, age², floorRatio, furnished
 
 function designRow(row: AnalysisRow, model: Pick<CityModel, "districtIdx" | "imputed">): number[] {
   const p = NUM_BASE_FEATURES + model.districtIdx.size;
@@ -119,6 +134,7 @@ function designRow(row: AnalysisRow, model: Pick<CityModel, "districtIdx" | "imp
   x[3] = age;
   x[4] = age * age;
   x[5] = Math.min(1.5, Math.max(0, floorRatio));
+  x[6] = row.furnished ? 1 : 0;
 
   const dIdx = row.district ? model.districtIdx.get(row.district) : undefined;
   if (dIdx != null) x[dIdx] = 1;
@@ -128,8 +144,14 @@ function designRow(row: AnalysisRow, model: Pick<CityModel, "districtIdx" | "imp
 function fitCity(type: "rent" | "sale", city: string, rows: AnalysisRow[]): CityModel | null {
   if (rows.length < MIN_CITY_ROWS) return null;
 
+  // Fit the baseline on standard whole apartments only — serviced rooms,
+  // sublets and renovation specials are a different market and would bias it.
+  // (All rows are still kept for valuation, comparables and the map.)
+  const fitRows = rows.filter((r) => descriptionRedFlags(r.description).length === 0);
+  if (fitRows.length < MIN_CITY_ROWS) return null;
+
   const districtCounts = new Map<string, number>();
-  for (const r of rows) {
+  for (const r of fitRows) {
     if (r.district) districtCounts.set(r.district, (districtCounts.get(r.district) ?? 0) + 1);
   }
   const districtIdx = new Map<string, number>();
@@ -140,19 +162,19 @@ function fitCity(type: "rent" | "sale", city: string, rows: AnalysisRow[]): City
 
   const imputed = {
     age: median(
-      rows
+      fitRows
         .filter((r) => r.build_year && r.build_year > 1800)
         .map((r) => (CURRENT_YEAR - r.build_year!) / 10),
     ) || 4,
     floorRatio: 0.5,
-    rooms: median(rows.filter((r) => r.rooms != null).map((r) => r.rooms!)) || 2,
+    rooms: median(fitRows.filter((r) => r.rooms != null).map((r) => r.rooms!)) || 2,
   };
 
-  if (rows.length < NUM_BASE_FEATURES + districtIdx.size + 10) return null;
+  if (fitRows.length < NUM_BASE_FEATURES + districtIdx.size + 10) return null;
 
   const partial = { districtIdx, imputed };
-  const X = rows.map((r) => designRow(r, partial));
-  const y = rows.map((r) => Math.log(r.price));
+  const X = fitRows.map((r) => designRow(r, partial));
+  const y = fitRows.map((r) => Math.log(r.price));
 
   // Pass 1: find outliers
   const first = olsFit(X, y);
@@ -165,16 +187,16 @@ function fitCity(type: "rent" | "sale", city: string, rows: AnalysisRow[]): City
   if (Xin.length < NUM_BASE_FEATURES + districtIdx.size + 10) return null;
   const fit = olsFit(Xin, yin);
 
-  // Residuals for ALL rows against the final fit
+  // Residuals for the fit rows against the final fit
   const residualById = new Map<number, number>();
   const inlierResiduals: number[] = [];
   let smearingSum = 0;
-  for (let i = 0; i < rows.length; i++) {
+  for (let i = 0; i < fitRows.length; i++) {
     let pred = 0;
     const xi = X[i]!;
     for (let j = 0; j < fit.beta.length; j++) pred += fit.beta[j]! * xi[j]!;
     const resid = y[i]! - pred;
-    residualById.set(rows[i]!.id, resid);
+    residualById.set(fitRows[i]!.id, resid);
     if (inlier[i]) {
       inlierResiduals.push(resid);
       smearingSum += Math.exp(resid);
@@ -261,9 +283,12 @@ export type Valuation = {
   flags: string[];
   /** the listing isn't a comparable whole apartment (renovation/sublet/shared/etc.) */
   disqualified: boolean;
+  /** ~68% prediction interval around the estimate (one robust σ in log space) */
+  estimateLow: number;
+  estimateHigh: number;
   /** composite 0-100, only meaningful for underpriced listings */
   dealScore: number;
-  model: { r2: number; n: number; districtN: number };
+  model: { r2: number; n: number; districtN: number; sigma: number };
 };
 
 export function valuate(model: CityModel, row: AnalysisRow): Valuation {
@@ -293,6 +318,7 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
   // Description red-flags explain the discount away — not a real deal.
   const redFlags = descriptionRedFlags(row.description);
   flags.push(...redFlags);
+  if (row.furnished) flags.push("furnished");
   if (edge < -0.45) flags.push("suspicious"); // >45% under model — likely a room/shared flat or data error
   if (row.price_changed_at) flags.push("price-drop");
   if (row.published_at && Date.now() - Date.parse(row.published_at) < 7 * 86_400_000) {
@@ -314,6 +340,7 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
   let dealScore = Math.round(edgePts + sigPts + confPts + demandPts);
   if (disqualified) dealScore = Math.min(dealScore, 25);
 
+  const band = Math.exp(model.residSigma);
   return {
     row,
     expectedPrice,
@@ -324,8 +351,10 @@ export function valuate(model: CityModel, row: AnalysisRow): Valuation {
     confidence,
     flags,
     disqualified,
+    estimateLow: expectedPrice / band,
+    estimateHigh: expectedPrice * band,
     dealScore,
-    model: { r2: model.r2, n: model.nUsed, districtN },
+    model: { r2: model.r2, n: model.nUsed, districtN, sigma: model.residSigma },
   };
 }
 
@@ -372,10 +401,45 @@ export function valuateListing(id: number): Valuation | null {
     .get(id) as AnalysisRow | null;
   if (!row?.city) return null;
   row.city = normalizeCity(row.city);
+  row.furnished = isFurnished(row.description);
 
   const model = getCityModel(row.type, row.city!);
   if (!model) return null;
   return valuate(model, row);
+}
+
+export type MapPoint = {
+  id: number;
+  lat: number;
+  lng: number;
+  price: number;
+  sizeM2: number;
+  edge: number;
+  address: string | null;
+  district: string | null;
+};
+
+/** Geolocated listings for a city with their model edge, for the map. */
+export function getCityMapPoints(type: "rent" | "sale", city: string): MapPoint[] {
+  const model = getCityModel(type, city);
+  if (!model) return [];
+  const out: MapPoint[] = [];
+  for (const row of model.rows) {
+    if (row.lat == null || row.lng == null) continue;
+    if (descriptionRedFlags(row.description).length > 0) continue; // hide non-comparable units
+    const expected = predictPrice(model, row);
+    out.push({
+      id: row.id,
+      lat: row.lat,
+      lng: row.lng,
+      price: row.price,
+      sizeM2: row.size_m2,
+      edge: row.price / expected - 1,
+      address: row.address,
+      district: row.district,
+    });
+  }
+  return out;
 }
 
 /** Closest comparables: same district, similar size, similar rooms. */

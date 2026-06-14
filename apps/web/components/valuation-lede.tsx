@@ -6,12 +6,14 @@ import { EASE } from "./motion";
 type Val = {
   askingPrice: number | null;
   expectedPrice: number;
+  estimateLow: number;
+  estimateHigh: number;
   edgePercent: number;
   zScore: number;
   verdict: string;
   dealScore: number;
   confidence: string;
-  model: { r2: number; districtN: number };
+  model: { r2: number; districtN: number; sigma: number };
   districtPpm2Percentile: number | null;
   demandPercentile: number;
   visitsWeekly: number;
@@ -54,6 +56,9 @@ export function ValuationLede({ v }: { v: Val }) {
         <Cell label="Asking">{eur(v.askingPrice)}</Cell>
         <Cell label="Model estimate" color="var(--muted-foreground)">
           {eur(v.expectedPrice)}
+          <span className="mt-1 block text-xs font-normal tabular-nums text-muted-foreground">
+            typical {eur(v.estimateLow)}–{eur(v.estimateHigh)}
+          </span>
         </Cell>
         <Cell label="Edge" color={signal}>
           {pct(v.edgePercent)}
@@ -132,6 +137,38 @@ export function ValuationLede({ v }: { v: Val }) {
           </div>
         )}
       </dl>
+
+      <details className="group mt-7 border-t border-border pt-4">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <span className="transition-transform group-open:rotate-90">›</span>
+          How is this estimate computed?
+        </summary>
+        <div className="mt-3 max-w-2xl space-y-2 text-sm leading-relaxed text-muted-foreground">
+          <p>
+            For each city we fit a <strong className="text-foreground">hedonic regression</strong> on{" "}
+            <span className="text-foreground">log(rent)</span> using every comparable apartment:
+            size, rooms, building age, floor and a fixed effect for each district (plus a furnished
+            premium). The model learns what each attribute is worth, then predicts what{" "}
+            <em>this</em> apartment should rent for.
+          </p>
+          <p>
+            The estimate is a <strong className="text-foreground">conditional mean</strong>, not an
+            exact figure — comparable apartments scatter around it. The{" "}
+            <span className="text-foreground">typical range</span> shown ({eur(v.estimateLow)}–
+            {eur(v.estimateHigh)}) is one robust standard deviation; roughly two-thirds of similar
+            apartments fall inside it. The <span style={{ color: signal }}>edge</span> is how far the
+            asking price sits from the estimate, and the <span className="text-foreground">z-score</span>{" "}
+            ({v.zScore.toFixed(2)}) measures that gap in standard deviations — that, not the raw
+            estimate, is what drives the deal score.
+          </p>
+          <p className="text-xs">
+            Fit on {v.model.districtN} comparable listings in this district · model R²{" "}
+            {v.model.r2.toFixed(2)} · serviced/sublet/renovation listings are excluded from the
+            baseline. Small studios in premium areas have the widest spread — treat their estimates
+            as a guide, and check the comparables below.
+          </p>
+        </div>
+      </details>
     </div>
   );
 }
