@@ -13,6 +13,7 @@ import {
 } from "@/lib/data";
 import { ValuationLede } from "@/components/valuation-lede";
 import { CostPanel } from "@/components/cost-panel";
+import { AreaSection } from "@/components/area-section";
 import { Stagger, Item, FadeUp } from "@/components/motion";
 
 export const dynamic = "force-dynamic";
@@ -74,9 +75,6 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
     add("Building floors", detail.buildingFloors);
     add("Other terms", detail.otherTerms);
   }
-
-  const transit = area?.transportation?.content?.slice(0, 6) ?? [];
-  const services = area?.services?.content?.slice(0, 4) ?? [];
 
   const dr = (detailRow ?? {}) as Record<string, unknown>;
   const livability = scoreLivability({
@@ -146,53 +144,25 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           </FadeUp>
         )}
 
-        {/* Particulars · Transport */}
-        <div className="grid grid-cols-1 border-x border-b border-border bg-background lg:grid-cols-2">
-          {particulars.length > 0 && (
-            <FadeUp className="px-6 py-9 sm:px-10 lg:border-r lg:border-border">
-              <h2 className="eyebrow mb-4">Particulars</h2>
-              <dl>
-                {particulars.map(([k, x]) => (
-                  <div key={k} className="flex gap-6 border-b border-border py-2.5">
-                    <dt className="w-36 shrink-0 text-sm text-muted-foreground">{k}</dt>
-                    <dd className="text-sm">{x}</dd>
-                  </div>
-                ))}
-              </dl>
-            </FadeUp>
-          )}
+        {/* Neighbourhood — icon-coded transport & amenities */}
+        <FadeUp className="border-x border-b border-border bg-background px-6 py-9 sm:px-10">
+          <AreaSection area={area} />
+        </FadeUp>
 
-          <FadeUp className="px-6 py-9 sm:px-10">
-            {transit.length > 0 ? (
-              <>
-                <h2 className="eyebrow mb-4">Transport</h2>
-                <dl>
-                  {transit.map((t, i) => (
-                    <div key={i} className="flex items-baseline justify-between gap-4 border-b border-border py-2.5">
-                      <dt className="text-sm">{t.name}</dt>
-                      <dd className="shrink-0 text-sm tabular-nums text-muted-foreground">{t.travelTime}</dd>
-                    </div>
-                  ))}
-                </dl>
-                {services.length > 0 && (
-                  <>
-                    <h2 className="eyebrow mb-4 mt-7">Nearby</h2>
-                    <dl>
-                      {services.map((s, i) => (
-                        <div key={i} className="flex items-baseline justify-between gap-4 border-b border-border py-2.5">
-                          <dt className="text-sm">{s.name}</dt>
-                          <dd className="shrink-0 text-sm tabular-nums text-muted-foreground">{s.travelTime}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Transport data unavailable for this listing.</p>
-            )}
+        {/* Particulars */}
+        {particulars.length > 0 && (
+          <FadeUp className="border-x border-b border-border bg-background px-6 py-9 sm:px-10">
+            <h2 className="eyebrow mb-4">Particulars</h2>
+            <dl className="grid grid-cols-1 gap-x-12 sm:grid-cols-2">
+              {particulars.map(([k, x]) => (
+                <div key={k} className="flex gap-6 border-b border-border py-2.5">
+                  <dt className="w-36 shrink-0 text-sm text-muted-foreground">{k}</dt>
+                  <dd className="text-sm">{x}</dd>
+                </div>
+              ))}
+            </dl>
           </FadeUp>
-        </div>
+        )}
 
         {/* Comparables · Description */}
         <div className="grid grid-cols-1 border-x border-b border-border bg-background lg:grid-cols-2">

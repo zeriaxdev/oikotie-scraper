@@ -2,6 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type SearchValues = {
   type: string;
@@ -16,22 +23,44 @@ export type SearchValues = {
 };
 
 function Field({
-  label, name, value, onChange, placeholder, type = "text", width = "w-full",
+  label, value, onChange, placeholder, type = "text",
 }: {
-  label: string; name: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string; width?: string;
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
 }) {
   return (
-    <label className={`flex flex-col gap-1.5 ${width}`}>
+    <label className="flex flex-col gap-1.5">
       <span className="eyebrow">{label}</span>
       <input
-        name={name}
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+        className="h-9 border border-border bg-card px-3 text-sm outline-none focus:border-primary"
       />
+    </label>
+  );
+}
+
+function Menu({
+  label, value, onChange, options,
+}: {
+  label: string; value: string; onChange: (v: string) => void; options: [string, string][];
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="eyebrow">{label}</span>
+      <Select value={value} onValueChange={(val) => onChange((val as string | null) ?? "")}>
+        <SelectTrigger className="h-9 rounded-none border-border">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="rounded-none">
+          {options.map(([val, lbl]) => (
+            <SelectItem key={val} value={val} className="rounded-none">
+              {lbl}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   );
 }
@@ -55,9 +84,9 @@ export function SearchControls({ initial }: { initial: SearchValues }) {
 
   return (
     <div>
-      {/* paste an Oikotie URL or id */}
+      {/* open by URL / id */}
       <div className="flex items-center gap-3 border border-border bg-card px-4 py-3">
-        <span className="eyebrow shrink-0">Open by URL / ID</span>
+        <span className="eyebrow hidden shrink-0 sm:block">Open by URL / ID</span>
         <input
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
@@ -76,42 +105,33 @@ export function SearchControls({ initial }: { initial: SearchValues }) {
           e.preventDefault();
           submit();
         }}
-        className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8"
+        className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-9"
       >
-        <label className="flex flex-col gap-1.5">
-          <span className="eyebrow">Type</span>
-          <select
-            value={v.type}
-            onChange={(e) => set("type")(e.target.value)}
-            className="border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-          >
-            <option value="rent">Rent</option>
-            <option value="sale">Sale</option>
-          </select>
-        </label>
-        <Field label="City" name="city" value={v.city} onChange={set("city")} placeholder="Helsinki" />
-        <Field label="District" name="district" value={v.district} onChange={set("district")} placeholder="Kallio" />
-        <Field label="Min €" name="minPrice" type="number" value={v.minPrice} onChange={set("minPrice")} />
-        <Field label="Max €" name="maxPrice" type="number" value={v.maxPrice} onChange={set("maxPrice")} />
-        <Field label="Min m²" name="minSize" type="number" value={v.minSize} onChange={set("minSize")} />
-        <Field label="Max m²" name="maxSize" type="number" value={v.maxSize} onChange={set("maxSize")} />
+        <Menu label="Type" value={v.type} onChange={set("type")} options={[["rent", "Rent"], ["sale", "Sale"]]} />
+        <Field label="City" value={v.city} onChange={set("city")} placeholder="Helsinki" />
+        <Field label="District" value={v.district} onChange={set("district")} placeholder="Kallio" />
+        <Field label="Rooms" value={v.rooms} onChange={set("rooms")} placeholder="e.g. 2" type="number" />
+        <Field label="Min €" value={v.minPrice} onChange={set("minPrice")} type="number" />
+        <Field label="Max €" value={v.maxPrice} onChange={set("maxPrice")} type="number" />
+        <Field label="Min m²" value={v.minSize} onChange={set("minSize")} type="number" />
+        <Field label="Max m²" value={v.maxSize} onChange={set("maxSize")} type="number" />
         <div className="flex items-end gap-2">
-          <label className="flex flex-1 flex-col gap-1.5">
-            <span className="eyebrow">Sort</span>
-            <select
+          <div className="flex-1">
+            <Menu
+              label="Sort"
               value={v.sort}
-              onChange={(e) => set("sort")(e.target.value)}
-              className="border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-            >
-              <option value="price">€ ↑</option>
-              <option value="-price">€ ↓</option>
-              <option value="size">m² ↑</option>
-              <option value="-size">m² ↓</option>
-              <option value="newest">Newest</option>
-              <option value="popular">Popular</option>
-            </select>
-          </label>
-          <button type="submit" className="h-[38px] bg-primary px-4 text-sm font-medium text-primary-foreground">
+              onChange={set("sort")}
+              options={[
+                ["price", "€ ↑"],
+                ["-price", "€ ↓"],
+                ["size", "m² ↑"],
+                ["-size", "m² ↓"],
+                ["newest", "Newest"],
+                ["popular", "Popular"],
+              ]}
+            />
+          </div>
+          <button type="submit" className="h-9 shrink-0 bg-primary px-4 text-sm font-medium text-primary-foreground">
             Search
           </button>
         </div>

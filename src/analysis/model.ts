@@ -27,6 +27,8 @@ export type AnalysisRow = {
   address: string | null;
   district: string | null;
   city: string | null;
+  lat: number | null;
+  lng: number | null;
   visits: number;
   visits_weekly: number;
   published_at: string | null;
@@ -65,7 +67,7 @@ export function getAnalysisRows(type: "rent" | "sale", city?: string): AnalysisR
   const rows = getDb()
     .prepare(
       `SELECT id, url, type, price, size_m2, rooms, room_config, build_year,
-              floor, total_floors, address, district, city,
+              floor, total_floors, address, district, city, lat, lng,
               visits, visits_weekly, published_at, price_changed_at, description
        FROM listings
        WHERE type = $type AND price > 0 AND size_m2 >= 9 ${cityCond}`,
@@ -363,7 +365,7 @@ export function valuateListing(id: number): Valuation | null {
   const row = getDb()
     .prepare(
       `SELECT id, url, type, price, size_m2, rooms, room_config, build_year,
-              floor, total_floors, address, district, city,
+              floor, total_floors, address, district, city, lat, lng,
               visits, visits_weekly, published_at, price_changed_at, description
        FROM listings WHERE id = ? AND price > 0 AND size_m2 >= 9`,
     )
