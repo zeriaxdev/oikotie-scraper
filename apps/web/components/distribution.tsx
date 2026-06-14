@@ -1,8 +1,5 @@
-"use client";
-
-import { motion, useReducedMotion } from "motion/react";
-import { EASE } from "./motion";
-
+// Price distribution histogram. Bars render at full height by default (no
+// JS gating); a CSS grow is a pure enhancement.
 type Props = {
   bins: number[];
   lo: number;
@@ -13,14 +10,12 @@ type Props = {
 const fmt = (n: number) => Math.round(n).toLocaleString("fi-FI") + " €";
 
 export function Distribution({ bins, lo, hi, median }: Props) {
-  const reduce = useReducedMotion();
   const max = Math.max(...bins, 1);
   const medianFrac = hi > lo ? (median - lo) / (hi - lo) : 0.5;
 
   return (
     <figure className="m-0">
       <div className="relative flex h-32 items-end gap-[3px]">
-        {/* median marker */}
         <div
           className="pointer-events-none absolute inset-y-0 z-10 w-px bg-primary/70"
           style={{ left: `${medianFrac * 100}%` }}
@@ -33,13 +28,10 @@ export function Distribution({ bins, lo, hi, median }: Props) {
           const frac = (i + 0.5) / bins.length;
           const belowMedian = frac < medianFrac;
           return (
-            <motion.span
+            <span
               key={i}
-              className={`flex-1 ${belowMedian ? "bg-primary/70" : "bg-primary/25"}`}
-              style={{ height: `${(count / max) * 100}%`, originY: 1, minHeight: 1 }}
-              initial={{ scaleY: reduce ? 1 : 0, opacity: reduce ? 1 : 0.4 }}
-              animate={{ scaleY: 1, opacity: 1 }}
-              transition={{ duration: 0.5, ease: EASE, delay: reduce ? 0 : 0.15 + i * 0.01 }}
+              className={`reveal-bar flex-1 origin-bottom ${belowMedian ? "bg-primary/70" : "bg-primary/25"}`}
+              style={{ height: `${(count / max) * 100}%`, minHeight: 1, animationDelay: `${0.1 + i * 0.008}s` }}
             />
           );
         })}

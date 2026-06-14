@@ -1,8 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
-import { EASE } from "./motion";
 
 function Mark() {
   // Compact engineering glyph — concentric squares, a nod to the grid.
@@ -16,14 +12,8 @@ function Mark() {
 }
 
 export function Masthead() {
-  const reduce = useReducedMotion();
   return (
-    <motion.header
-      initial={{ opacity: 0, y: reduce ? 0 : -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: EASE }}
-      className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md"
-    >
+    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-3.5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5 text-foreground">
           <Mark />
@@ -32,6 +22,9 @@ export function Masthead() {
         <nav className="flex items-center gap-7 text-sm">
           <Link href="/" className="text-foreground/80 transition-colors hover:text-foreground">
             Market
+          </Link>
+          <Link href="/search" className="text-foreground/80 transition-colors hover:text-foreground">
+            Search
           </Link>
           <a
             href="https://github.com/zeriaxdev/oikotie-scraper"
@@ -43,6 +36,6 @@ export function Masthead() {
           </a>
         </nav>
       </div>
-    </motion.header>
+    </header>
   );
 }

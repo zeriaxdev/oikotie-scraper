@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion, type Variants } from "motion/react";
-import { EASE } from "./motion";
 
 export type Deal = {
   id: number;
@@ -29,12 +27,6 @@ const pct = (n: number) => (n > 0 ? "+" : "") + n.toFixed(1) + "%";
 
 export function DealLedger({ deals }: { deals: Deal[] }) {
   const router = useRouter();
-  const reduce = useReducedMotion();
-
-  const row: Variants = {
-    hidden: { opacity: 0, y: reduce ? 0 : 10 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
-  };
 
   if (deals.length === 0) {
     return (
@@ -59,19 +51,15 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
             <th className="text-right">Livability</th>
           </tr>
         </thead>
-        <motion.tbody
-          initial="hidden"
-          animate="show"
-          variants={{ show: { transition: { staggerChildren: reduce ? 0 : 0.035, delayChildren: 0.1 } } }}
-        >
+        <tbody>
           {deals.map((d, i) => (
-            <motion.tr
+            <tr
               key={d.id}
-              variants={row}
               onClick={() => router.push(`/listings/${d.id}`)}
-              className={`group cursor-pointer rule border-b align-baseline transition-colors hover:bg-accent/60 [&>td]:py-3 [&>td]:pr-4 ${
+              className={`reveal-row group cursor-pointer rule border-b align-baseline transition-colors hover:bg-accent/60 [&>td]:py-3 [&>td]:pr-4 ${
                 d.disqualified ? "opacity-60" : ""
               }`}
+              style={{ animationDelay: `${Math.min(i * 0.025, 0.4)}s` }}
             >
               <td className="text-right font-serif text-sm tabular-nums text-muted-foreground">
                 {String(i + 1).padStart(2, "0")}
@@ -125,9 +113,9 @@ export function DealLedger({ deals }: { deals: Deal[] }) {
                   <span className="figure text-base text-primary">{d.livability}</span>
                 </span>
               </td>
-            </motion.tr>
+            </tr>
           ))}
-        </motion.tbody>
+        </tbody>
       </table>
     </div>
   );
